@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-const handleAPI = async ({ name, params, method }) => {
+const handleAPI = async ({ name, params, method, signal }) => {
   let protocol = Platform.OS === "web" ? "https" : "http";
   params = Object.keys(params)
     .map((key) => `${key}=${params[key]}`)
@@ -9,6 +9,7 @@ const handleAPI = async ({ name, params, method }) => {
 
   return fetch(URL, {
     method: method || "POST",
+    signal: signal,
     // mode: "cors",
     crossDomain: true,
     headers: {
@@ -34,9 +35,9 @@ const handleParamFromURL = (url, param) => {
   const value = params[index + 2];
   return value;
 };
-const handleWebPageOpen = (iVendorId, SessionId) => {
+const handleWebPageOpen = (iVendorId, SessionId, url) => {
   var sURL =
-    "http://www.solutioncenter.biz/VendorChanges/Presentation/Webforms/VendorInfoChangeRequest_bootstrap.aspx?SessionId=" +
+    url +
     SessionId +
     "&VendorId=" +
     iVendorId +
