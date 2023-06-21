@@ -840,9 +840,15 @@ export default function VendorContacts() {
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={(e) => {}}
-                            style={[styles.buttonContainer]}
+                            style={[
+                              [styles.buttonContainer],
+                              // { backgroundColor: "#ffb752" },
+                              { backgroundColor: "yellow" },
+                            ]}
                           >
-                            <CustomText style={styles["btn"]}>
+                            <CustomText
+                              style={[styles["btn"], { color: "#6f5555" }]}
+                            >
                               {"Remove"}
                             </CustomText>
                           </TouchableOpacity>
@@ -939,85 +945,93 @@ export default function VendorContacts() {
                 <>
                   <View
                     style={[
-                      styles["card-body"],
                       {
                         minHeight: Platform.OS === "web" ? 250 : null,
                       },
                     ]}
                   >
-                    <View style={{ gap: 10 }}>
-                      <View style={{ flexDirection: "row" }}>
-                        <View style={{ maxWidth: 250, marginRight: 5 }}>
-                          <CustomText
-                            onPress={(e) => {
-                              toggleModal("Seller");
-                            }}
-                            style={styles["card-text-underline"]}
-                            bold={true}
-                          >
-                            {row.AgentFN}
+                    {sellerInfo["RowData"].length > 3 && (
+                      <View style={{ alignSelf: "end", marginTop: 5 }}>
+                        <TouchableOpacity
+                          style={[styles.buttonContainer]}
+                          // onPress={(e) => {
+                          //   setSellerInfo({
+                          //     ...sellerInfo,
+                          //     AddSeller: true,
+                          //   });
+                          // }}
+
+                          onPress={(e) => {
+                            toggleModal("Seller");
+                          }}
+                        >
+                          <CustomText style={styles["btn"]}>
+                            {"View Additional Sellers"}
                           </CustomText>
-                        </View>
-                        {sellerInfo["RowData"].length > 1 && (
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    <View
+                      style={[
+                        styles["card-body"],
+                        { "grid-template-columns": "repeat(3, 1fr)" },
+                      ]}
+                    >
+                      {sellerInfo["RowData"].map((e) => (
+                        <View style={{ gap: 10 }}>
                           <View>
-                            <TouchableOpacity
-                              style={[styles.buttonContainer]}
-                              // onPress={(e) => {
-                              //   setSellerInfo({
-                              //     ...sellerInfo,
-                              //     AddSeller: true,
-                              //   });
-                              // }}
-
-                              onPress={(e) => {
-                                toggleModal("Seller");
-                              }}
-                            >
-                              <CustomText style={styles["btn"]}>
-                                {"View Additional Sellers"}
+                            <View style={{ maxWidth: 250, marginRight: 5 }}>
+                              <CustomText
+                                onPress={(e) => {
+                                  toggleModal("Seller");
+                                }}
+                                style={styles["card-text-underline"]}
+                                bold={true}
+                              >
+                                {e.AgentFN}
                               </CustomText>
-                            </TouchableOpacity>
+                            </View>
                           </View>
-                        )}
-                      </View>
-                      <View>
-                        <CustomText
-                          onPress={() => {
-                            let subject = "",
-                              body = "";
-                            const emailUrl = `mailto:${
-                              row.AgentEmail
-                            }?subject=${encodeURIComponent(
-                              subject
-                            )}&body=${encodeURIComponent(body)}`;
-                            Linking.openURL(emailUrl);
-                          }}
-                          style={styles["card-text-underline"]}
-                        >
-                          {row.AgentEmail}
-                        </CustomText>
-                      </View>
-                      <View>
-                        <CustomText
-                          onPress={() => {
-                            let phoneNumber = row.Phone?.replaceAll("-", "")
-                              .replaceAll("(", "")
-                              .replaceAll(")", "")
-                              .replaceAll(" ", "");
+                          <View>
+                            <CustomText
+                              onPress={() => {
+                                let subject = "",
+                                  body = "";
+                                const emailUrl = `mailto:${
+                                  e.AgentEmail
+                                }?subject=${encodeURIComponent(
+                                  subject
+                                )}&body=${encodeURIComponent(body)}`;
+                                Linking.openURL(emailUrl);
+                              }}
+                              style={styles["card-text-underline"]}
+                            >
+                              {e.AgentEmail}
+                            </CustomText>
+                          </View>
+                          <View>
+                            <CustomText
+                              onPress={() => {
+                                let phoneNumber = e.Phone?.replaceAll("-", "")
+                                  .replaceAll("(", "")
+                                  .replaceAll(")", "")
+                                  .replaceAll(" ", "");
 
-                            phoneNumber = `tel:${phoneNumber}`;
+                                phoneNumber = `tel:${phoneNumber}`;
 
-                            Linking.canOpenURL(phoneNumber)
-                              .then((supported) => {
-                                return Linking.openURL(phoneNumber);
-                              })
-                              .catch((err) => console.log(err));
-                          }}
-                          style={styles["card-text-underline"]}
-                        >
-                          {row.Phone}
-                        </CustomText>
-                      </View>
+                                Linking.canOpenURL(phoneNumber)
+                                  .then((supported) => {
+                                    return Linking.openURL(phoneNumber);
+                                  })
+                                  .catch((err) => console.log(err));
+                              }}
+                              style={styles["card-text-underline"]}
+                            >
+                              {e.Phone}
+                            </CustomText>
+                          </View>
+                        </View>
+                      ))}
                     </View>
                   </View>
                 </>
@@ -1315,6 +1329,28 @@ export default function VendorContacts() {
                                   </CustomText>
                                 </View>
 
+                                <View style={styles["card-item"]}>
+                                  <CustomText
+                                    onPress={() => {
+                                      let phoneNumber =
+                                        row.CompPhone?.replaceAll("-", "")
+                                          .replaceAll("(", "")
+                                          .replaceAll(")", "")
+                                          .replaceAll(" ", "");
+
+                                      phoneNumber = `tel:${phoneNumber}`;
+
+                                      Linking.canOpenURL(phoneNumber)
+                                        .then((supported) => {
+                                          return Linking.openURL(phoneNumber);
+                                        })
+                                        .catch((err) => console.log(err));
+                                    }}
+                                    style={styles["card-text-underline"]}
+                                  >
+                                    {row.CompPhone}
+                                  </CustomText>
+                                </View>
                                 {row["ContactType"] !== 7 && (
                                   <View
                                     style={[
@@ -1346,30 +1382,6 @@ export default function VendorContacts() {
                                     </CustomText>
                                   </View>
                                 )}
-
-                                <View style={styles["card-item"]}>
-                                  <CustomText
-                                    onPress={() => {
-                                      let phoneNumber =
-                                        row.CompPhone?.replaceAll("-", "")
-                                          .replaceAll("(", "")
-                                          .replaceAll(")", "")
-                                          .replaceAll(" ", "");
-
-                                      phoneNumber = `tel:${phoneNumber}`;
-
-                                      Linking.canOpenURL(phoneNumber)
-                                        .then((supported) => {
-                                          return Linking.openURL(phoneNumber);
-                                        })
-                                        .catch((err) => console.log(err));
-                                    }}
-                                    style={styles["card-text-underline"]}
-                                  >
-                                    {row.CompPhone}
-                                  </CustomText>
-                                </View>
-
                                 {[7, 2, 4].includes(row["ContactType"]) && (
                                   <>
                                     {queryString["IsEditRights"] == 1 ||
@@ -1460,37 +1472,6 @@ export default function VendorContacts() {
                                   </CustomText>
                                 </View>
 
-                                {row["ContactType"] !== 7 && (
-                                  <>
-                                    <View
-                                      style={[
-                                        styles["card-item"],
-                                        { flexDirection: "row" },
-                                      ]}
-                                    >
-                                      <CustomText
-                                        bold={true}
-                                        style={[
-                                          styles["card-lablebold"],
-                                          { marginRight: 5 },
-                                          {
-                                            width:
-                                              Platform.OS === "web"
-                                                ? "fit-content"
-                                                : null,
-                                            backgroundColor:
-                                              row.AgentLicense || "yellow",
-                                          },
-                                        ]}
-                                      >
-                                        {"Agent License "}
-                                      </CustomText>
-                                      <CustomText>
-                                        {row.AgentLicense}
-                                      </CustomText>
-                                    </View>
-                                  </>
-                                )}
                                 {row.Phone !== "" && (
                                   <View style={styles["card-item"]}>
                                     <CustomText
@@ -1534,6 +1515,37 @@ export default function VendorContacts() {
                                     {row.AgentEmail}
                                   </CustomText>
                                 </View>
+                                {row["ContactType"] !== 7 && (
+                                  <>
+                                    <View
+                                      style={[
+                                        styles["card-item"],
+                                        { flexDirection: "row" },
+                                      ]}
+                                    >
+                                      <CustomText
+                                        bold={true}
+                                        style={[
+                                          styles["card-lablebold"],
+                                          { marginRight: 5 },
+                                          {
+                                            width:
+                                              Platform.OS === "web"
+                                                ? "fit-content"
+                                                : null,
+                                            backgroundColor:
+                                              row.AgentLicense || "yellow",
+                                          },
+                                        ]}
+                                      >
+                                        {"Agent License "}
+                                      </CustomText>
+                                      <CustomText>
+                                        {row.AgentLicense}
+                                      </CustomText>
+                                    </View>
+                                  </>
+                                )}
                               </>
                             )}
                           </View>
@@ -1687,6 +1699,30 @@ export default function VendorContacts() {
                           style={[styles["card-input"], styles["card-item"]]}
                         ></View>
                       )}
+
+                      {/* Phone */}
+                      <View style={[styles["card-input"], styles["card-item"]]}>
+                        <InputField
+                          label="Company Phone"
+                          //autoFocus
+                          type="default"
+                          name=""
+                          value={cardInfo[index]["CompPhone"]}
+                          placeholder="Company Phone"
+                          onChangeText={(Text) => {
+                            handleCardChange(index, "CompPhone", Text);
+                          }}
+                          onBlur={(e) => {
+                            let number = FormatPhoneLogin(
+                              cardInfo[index]["CompPhone"]
+                            );
+                            handleCardChange(index, "CompPhone", number);
+                          }}
+                        />
+                      </View>
+                      <View
+                        style={[styles["card-input"], styles["card-item"]]}
+                      ></View>
                       {cardInfo[index]["ContactType"] !== 7 ? (
                         <View
                           style={[styles["card-input"], styles["card-item"]]}
@@ -1708,29 +1744,6 @@ export default function VendorContacts() {
                           style={[styles["card-input"], styles["card-item"]]}
                         ></View>
                       )}
-                      <View
-                        style={[styles["card-input"], styles["card-item"]]}
-                      ></View>
-                      {/* Phone */}
-                      <View style={[styles["card-input"], styles["card-item"]]}>
-                        <InputField
-                          label="Company Phone"
-                          //autoFocus
-                          type="default"
-                          name=""
-                          value={cardInfo[index]["CompPhone"]}
-                          placeholder="Company Phone"
-                          onChangeText={(Text) => {
-                            handleCardChange(index, "CompPhone", Text);
-                          }}
-                          onBlur={(e) => {
-                            let number = FormatPhoneLogin(
-                              cardInfo[index]["CompPhone"]
-                            );
-                            handleCardChange(index, "CompPhone", number);
-                          }}
-                        />
-                      </View>
                       <View
                         style={[styles["card-input"], styles["card-item"]]}
                       ></View>
