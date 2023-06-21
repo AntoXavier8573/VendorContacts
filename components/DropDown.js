@@ -420,73 +420,73 @@
 // };
 // export default DivList;
 
-import React, { useRef, useEffect, useState } from "react";
-import { View, ScrollView, Text } from "react-native";
-import KeyboardAwareScrollView from "react-native-keyboard-aware-scroll-view";
+// import React, { useRef, useEffect, useState } from "react";
+// import { View, ScrollView, Text } from "react-native";
+// import KeyboardAwareScrollView from "react-native-keyboard-aware-scroll-view";
 
-const ListComponent = () => {
-  const scrollViewRef = useRef(null);
-  const [selectedItemIndex, setSelectedItemIndex] = useState(0);
+// const ListComponent = () => {
+//   const scrollViewRef = useRef(null);
+//   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
 
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (
-        e.key === "ArrowUp" &&
-        selectedItemIndex > 0 &&
-        scrollViewRef.current
-      ) {
-        setSelectedItemIndex(selectedItemIndex - 1);
-        scrollViewRef.current.scrollTo({
-          y: selectedItemIndex * 50,
-          animated: true,
-        });
-      } else if (
-        e.key === "ArrowDown" &&
-        selectedItemIndex < data.length - 1 &&
-        scrollViewRef.current
-      ) {
-        setSelectedItemIndex(selectedItemIndex + 1);
-        scrollViewRef.current.scrollTo({
-          y: (selectedItemIndex + 2) * 50,
-          animated: true,
-        });
-      }
-    };
+//   useEffect(() => {
+//     const handleKeyDown = (e) => {
+//       if (
+//         e.key === "ArrowUp" &&
+//         selectedItemIndex > 0 &&
+//         scrollViewRef.current
+//       ) {
+//         setSelectedItemIndex(selectedItemIndex - 1);
+//         scrollViewRef.current.scrollTo({
+//           y: selectedItemIndex * 50,
+//           animated: true,
+//         });
+//       } else if (
+//         e.key === "ArrowDown" &&
+//         selectedItemIndex < data.length - 1 &&
+//         scrollViewRef.current
+//       ) {
+//         setSelectedItemIndex(selectedItemIndex + 1);
+//         scrollViewRef.current.scrollTo({
+//           y: (selectedItemIndex + 2) * 50,
+//           animated: true,
+//         });
+//       }
+//     };
 
-    document.addEventListener("keydown", handleKeyDown);
+//     document.addEventListener("keydown", handleKeyDown);
 
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [selectedItemIndex]);
+//     return () => {
+//       document.removeEventListener("keydown", handleKeyDown);
+//     };
+//   }, [selectedItemIndex]);
 
-  const data = ["Item 1", "Item 2", "Item 3", "Item 4", "Item 5"];
+//   const data = ["Item 1", "Item 2", "Item 3", "Item 4", "Item 5"];
 
-  const renderListItems = () => {
-    return data.map((item, index) => (
-      <View
-        key={index}
-        style={{
-          height: 50,
-          justifyContent: "center",
-          paddingHorizontal: 10,
-          backgroundColor: index === selectedItemIndex ? "yellow" : "white",
-        }}
-      >
-        <Text>{item}</Text>
-      </View>
-    ));
-  };
+//   const renderListItems = () => {
+//     return data.map((item, index) => (
+//       <View
+//         key={index}
+//         style={{
+//           height: 50,
+//           justifyContent: "center",
+//           paddingHorizontal: 10,
+//           backgroundColor: index === selectedItemIndex ? "yellow" : "white",
+//         }}
+//       >
+//         <Text>{item}</Text>
+//       </View>
+//     ));
+//   };
 
-  return (
-    <View
-      ref={scrollViewRef}
-      keyboardShouldPersistTaps="always"
-      style={{ flex: 1 }}
-    >
-      {renderListItems()}
-    </View>
-  );
-};
+//   return (
+//     <View
+//       ref={scrollViewRef}
+//       keyboardShouldPersistTaps="always"
+//       style={{ flex: 1 }}
+//     >
+//       {renderListItems()}
+//     </View>
+//   );
+// };
 
-export default ListComponent;
+// export default ListComponent;

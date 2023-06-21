@@ -174,6 +174,7 @@ export default function VendorContacts() {
     ModifiedJson: [],
   });
   const btnAddNewRef = useRef(null);
+  const flatListRef = useRef(null);
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -182,13 +183,24 @@ export default function VendorContacts() {
       //if (selectedItemIndex === 0) btnAddNewRef.current.focus();
       if (e.key === "ArrowUp" && selectedItemIndex > 0) {
         setSelectedItemIndex(selectedItemIndex - 1);
+        // flatListRef.current.scrollToIndex({
+        //   index: selectedItemIndex - 1 >= 0 ? selectedItemIndex - 1 : 0,
+        //   animated: true,
+        // });
       } else if (
         e.key === "ArrowDown" &&
         selectedItemIndex < otherProps.ComponySearchCount - 1
       ) {
         setSelectedItemIndex(selectedItemIndex + 1);
-      } else if (e.key === "Enter") {
-        alert(selectedItemIndex);
+        // setTimeout(() => {
+        //   flatListRef.current.scrollToIndex({
+        //     index:
+        //       selectedItemIndex + 1 < otherProps.ComponySearchCount
+        //         ? selectedItemIndex
+        //         : selectedItemIndex,
+        //     animated: true,
+        //   });
+        // }, 0);
       }
     };
 
@@ -501,6 +513,7 @@ export default function VendorContacts() {
             IsShowSpinner: false,
             ComponySearchCount: result.length,
           });
+          setSelectedItemIndex(0);
           setData({ [type]: result });
           setTimeout(() => {
             btnAddNewRef.current.focus();
@@ -1209,6 +1222,7 @@ export default function VendorContacts() {
                                       data={AutoCompdata[row["ContactType"]]}
                                       showsVerticalScrollIndicator={true}
                                       removeClippedSubviews={true}
+                                      ref={flatListRef}
                                       renderItem={({ item, index: i }) => (
                                         <Pressable
                                           ref={btnAddNewRef}
@@ -1221,21 +1235,22 @@ export default function VendorContacts() {
                                               backgroundColor:
                                                 i === selectedItemIndex
                                                   ? "yellow"
-                                                  : i % 2 == 0
-                                                  ? "#d9ecff"
-                                                  : "#fff",
+                                                  : // : i % 2 == 0
+                                                    // ? "#d9ecff"
+                                                    "#fff",
                                               // },
                                             },
                                             isHovered && styles["HoverBgColor"],
                                           ]}
                                           // onMouseEnter={handleMouseEnter}
                                           // onMouseLeave={handleMouseLeave}
-                                          // onPress={() =>
-                                          //   alert(
-                                          //     "navigate to page passing in " +
-                                          //       JSON.stringify(item)
-                                          //   )
-                                          // }
+                                          onPress={(e) => {
+                                            handleCompanySelection(
+                                              item,
+                                              index,
+                                              "Confirmation"
+                                            );
+                                          }}
                                         >
                                           <View>
                                             {GetItemText(item, index)}
@@ -2179,7 +2194,7 @@ export default function VendorContacts() {
                     <Pressable
                       style={({ pressed }) => [
                         {
-                          opacity: pressed ? 0.5 : 1,
+                          // opacity: pressed ? 0.5 : 1,
                           borderWidth: 1,
                           borderColor: "silver",
                           borderTopWidth: 0,
