@@ -49,8 +49,8 @@ export default function VendorContacts() {
     IsEditRights: 0,
   });
   const [copyAgent, setCopyAgent] = useState([]);
-  const [AutoCinput, setInput] = useState();
-  const [AutoCompdata, setData] = useState([]);
+  const [AutoCinput, setInput] = useState({});
+  const [AutoCompdata, setData] = useState({});
   const [apiController, setApiController] = useState(null);
   const [isHovered, setIsHovered] = useState(false);
   const [otherProps, setOtherProps] = useState({});
@@ -176,31 +176,38 @@ export default function VendorContacts() {
   const btnAddNewRef = useRef(null);
   const flatListRef = useRef(null);
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
+  const [validation, setValidation] = useState({});
   useEffect(() => {
     const handleKeyDown = (e) => {
-      console.log("key Pressed ===>", e.key);
+      console.log("key Pressed ===>", AutoCompdata);
       console.log("Selected index ===>", selectedItemIndex);
       //if (selectedItemIndex === 0) btnAddNewRef.current.focus();
       if (e.key === "ArrowUp" && selectedItemIndex > 0) {
         setSelectedItemIndex(selectedItemIndex - 1);
-        // flatListRef.current.scrollToIndex({
-        //   index: selectedItemIndex - 1 >= 0 ? selectedItemIndex - 1 : 0,
-        //   animated: true,
-        // });
+
+        setTimeout(() => {
+          flatListRef.current.scrollToItem({
+            animated: true,
+            item: AutoCompdata[Object.keys(AutoCompdata)[0]][
+              selectedItemIndex - 1
+            ],
+            viewPosition: 0.5,
+          });
+        }, 100);
       } else if (
         e.key === "ArrowDown" &&
         selectedItemIndex < otherProps.ComponySearchCount - 1
       ) {
         setSelectedItemIndex(selectedItemIndex + 1);
-        // setTimeout(() => {
-        //   flatListRef.current.scrollToIndex({
-        //     index:
-        //       selectedItemIndex + 1 < otherProps.ComponySearchCount
-        //         ? selectedItemIndex
-        //         : selectedItemIndex,
-        //     animated: true,
-        //   });
-        // }, 0);
+        setTimeout(() => {
+          flatListRef.current.scrollToItem({
+            animated: true,
+            item: AutoCompdata[Object.keys(AutoCompdata)[0]][
+              selectedItemIndex + 1
+            ],
+            viewPosition: 0,
+          });
+        }, 100);
       }
     };
 
@@ -320,6 +327,26 @@ export default function VendorContacts() {
             {}
           );
           setEditCompany(EnableSearch);
+          setValidation(EnableSearch);
+
+          // setData((prevState) => {
+          //   var updatedData = { ...prevState };
+          //   EmptyVendors.forEach((e) => {
+          //     updatedData[e.ContactType] = [
+          //       {
+          //         id: "0",
+          //         ValType: "V",
+          //         Type: [e.ContactType],
+          //         UserType: "V",
+          //         ActualType: [e.ContactType],
+          //         label: "Add New",
+          //         AgentCompName: "Add New",
+          //       },
+          //     ];
+          //   });
+
+          //   return updatedData;
+          // });
         } else {
           let GridData = Data.filter((e) => e.isCard === 1);
           //setResult({ ...result, AllVendor: GridData });
@@ -390,12 +417,18 @@ export default function VendorContacts() {
               ...editCard,
               [finalJson[0]["ContactType"]]: false,
             });
+            let SplitName = finalJson[0].AgentFN.split(" ");
+
+            let AgentName = `${finalJson[0].FirstName}${finalJson[0].Nickname}${
+              SplitName[SplitName.length - 1]
+            }`;
             setResult((PrevObj) => {
               const updateObj = [...PrevObj];
               updateObj[index] = {
                 ...PrevObj[index],
                 ["AgentEmail"]: finalJson[0].AgentEmail,
                 ["AgentFN"]: finalJson[0].AgentFN,
+                ["AgentFNN"]: AgentName,
                 ["AgentLicense"]: finalJson[0].AgentLicense,
                 ["CompEmail"]: finalJson[0].CompEmail,
                 ["CompPhone"]: finalJson[0].CompPhone,
@@ -419,16 +452,18 @@ export default function VendorContacts() {
               return updateObj;
             });
           } else {
-            // setSellerInfo((PrevObj) => {
-            //   const updateObj = [...PrevObj.RowData];
-            //   updateObj[index] = {
-            //     ["FirstName"]: finalJson[0].FirstName,
-            //     ["LastName"]: finalJson[0].LastName,
-            //     ["AgentEmail"]: finalJson[0].AgentEmail,
-            //     ["Phone"]: finalJson[0].Phone,
-            //   };
-            //   return updateObj;
-            // });
+            setSellerInfo((prevState) => {
+              const newRowData = [...prevState.RowData];
+              const updatedItem = {
+                ...newRowData[index],
+                ["FirstName"]: finalJson[0].FirstName,
+                ["LastName"]: finalJson[0].LastName,
+                ["AgentEmail"]: finalJson[0].AgentEmail,
+                ["Phone"]: finalJson[0].Phone,
+              };
+              newRowData[index] = updatedItem;
+              return { ...prevState, RowData: newRowData };
+            });
           }
         }
       })
@@ -491,7 +526,7 @@ export default function VendorContacts() {
       .catch((e) => console.log("Error in fnPrintVendor method => ", e));
   };
   const GetTypeaheadAgentInfo = (value, type, signal) => {
-    setOtherProps({ ...otherProps, IsShowSpinner: true });
+    setOtherProps({ ...otherProps, [type]: true });
     handleAPI({
       name: "GetTypeaheadAgentInfo",
       signal: signal,
@@ -505,12 +540,12 @@ export default function VendorContacts() {
     })
       .then((response) => {
         let result = [];
-        if (response !== undefined) {
+        if (response !== undefined && response != "undefined") {
           result = JSON.parse(response);
           console.log("search count", result.length);
           setOtherProps({
             ...otherProps,
-            IsShowSpinner: false,
+            [type]: false,
             ComponySearchCount: result.length,
           });
           setSelectedItemIndex(0);
@@ -518,8 +553,14 @@ export default function VendorContacts() {
           setTimeout(() => {
             btnAddNewRef.current.focus();
           }, 0);
-        } else setData({ ...AutoCompdata, IsshowButton: 1 });
-        // debugger;
+        } else {
+          // setOtherProps({
+          //   ...otherProps,
+          //   IsShowSpinner: false,
+          //   ComponySearchCount: result.length,
+          // });
+          setData({ ...AutoCompdata, IsshowButton: 1 });
+        }
         console.log("auto complete result ==>", result);
       })
 
@@ -589,6 +630,7 @@ export default function VendorContacts() {
     return <>{views}</>;
   };
   const handleCompanySearch = (event, type) => {
+    setInput({ [type]: event });
     if (apiController) {
       apiController.abort(); // Abort previous API call
     }
@@ -637,6 +679,8 @@ export default function VendorContacts() {
           ...copyAgent,
           [finalJson[0].ContactType]: IsSame === 1 ? true : false,
         });
+        setData({});
+        setInput({});
         let ContactType = event.ActualType == 2 ? 4 : 49;
         let Index = event.ActualType == 2 ? 3 : 5;
         setResult((PrevObj) => {
@@ -751,6 +795,7 @@ export default function VendorContacts() {
           }
           return updateObj;
         });
+        setValidation({ ...validation, [finalJson[0].ContactType]: false });
       })
       .catch((e) => console.log("Error in Company selection method => ", e));
   };
@@ -782,9 +827,110 @@ export default function VendorContacts() {
   const handleMouseLeave = () => {
     setIsHovered(false);
   };
-  // const handleInputChange = (text) => {
-  //   setInput(text);
-  // };
+
+  const getAddress = (add) => {
+    try {
+      add = add.split(", ");
+      return `${add[1]}, ${add[2]} ${add[3]}`;
+    } catch (error) {
+      return add;
+    }
+  };
+  const handleRemoveSellerOrAgent = (Data) => {
+    console.log("remove info", Data);
+    //return;
+    handleAPI({
+      name: "RemovefrmLoan",
+      params: {
+        UserId: Data.AgentID,
+        UserType: Data.ContactSourceType,
+        strSessionId: handleParamFromURL(document.location.href, "SessionId"),
+        ServCatId: Data.ContactType,
+        iLoanId: handleParamFromURL(document.location.href, "LoanId"),
+      },
+      method: "POST",
+    })
+      .then((response) => {
+        if (Data.ContactSourceType === "S") {
+          const Result = sellerInfo.RowData.filter((e) => {
+            return e.AgentID !== Data.AgentID;
+          });
+          setSellerInfo({ ...sellerInfo, RowData: Result });
+        } else {
+          setModalVisible({ isModalVisible, Remove: false });
+          const index = fnGetIndex(Data.ContactType);
+          setResult((PrevObj) => {
+            const updateObj = [...PrevObj];
+            updateObj[index] = {
+              ["ContactType"]: Data.ContactType,
+              ["ContactTypename"]: Data.ContactTypename,
+              ["Loanid"]: Data.Loanid,
+              ["VendorId"]: Data.VendorId,
+              ["isCard"]: 1,
+            };
+            return updateObj;
+          });
+
+          setCardInfo((PrevObj) => {
+            const updateObj = [...PrevObj];
+            updateObj[index] = {
+              ["ContactType"]: Data.ContactType,
+              ["ContactTypename"]: Data.ContactTypename,
+              ["Loanid"]: Data.Loanid,
+              ["VendorId"]: Data.VendorId,
+              ["isCard"]: 1,
+            };
+            return updateObj;
+          });
+          setEditCompany({
+            ...editCompany,
+            [Data.ContactType]:
+              editCompany[Data.ContactType] === undefined
+                ? true
+                : !editCompany[Data.ContactType],
+          });
+          setValidation({ ...validation, [Data.ContactType]: true });
+        }
+      })
+      .catch((e) =>
+        console.log("Error in handleRemoveSellerOrAgent method => ", e)
+      );
+  };
+  const fnGetIndex = (value) => {
+    const valueToIndex = {
+      7: 0,
+      0: 1,
+      2: 2,
+      4: 3,
+      48: 4,
+      49: 5,
+      50: 6,
+      51: 7,
+    };
+
+    return valueToIndex[value] !== undefined ? valueToIndex[value] : -1;
+  };
+  const handleCompanyChange = (Type) => {
+    setEditCompany({
+      ...editCompany,
+      [Type]: editCompany[Type] === undefined ? true : !editCompany[Type],
+    });
+
+    setData({
+      [Type]: [
+        {
+          id: "0",
+          ValType: "V",
+          Type: Type,
+          UserType: "V",
+          ActualType: Type,
+          label: "Add New",
+          AgentCompName: "Add New  ",
+        },
+      ],
+    });
+  };
+
   return (
     <View>
       {result.length === 0 && (
@@ -819,42 +965,49 @@ export default function VendorContacts() {
                 {/* To show the header buttons based on the vendor "0" is for Seller */}
                 {row["ContactType"] != 0 ? (
                   <>
-                    <>
-                      {!editCard[row["ContactType"]] && (
-                        <View style={styles["btn"]}>
-                          <TouchableOpacity
-                            onPress={(e) => {
-                              setEditCard({
-                                ...editCard,
-                                [row["ContactType"]]:
-                                  editCard[row["ContactType"]] === undefined
-                                    ? true
-                                    : !editCard[row["ContactType"]],
-                              });
-                            }}
-                            style={[styles.buttonContainer]}
-                          >
-                            <CustomText style={styles["btn"]}>
-                              {"Edit"}
-                            </CustomText>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={(e) => {}}
-                            style={[
-                              [styles.buttonContainer],
-                              // { backgroundColor: "#ffb752" },
-                              { backgroundColor: "yellow" },
-                            ]}
-                          >
-                            <CustomText
-                              style={[styles["btn"], { color: "#6f5555" }]}
+                    {!validation[row["ContactType"]] && (
+                      <>
+                        {!editCard[row["ContactType"]] && (
+                          <View style={styles["btn"]}>
+                            <TouchableOpacity
+                              onPress={(e) => {
+                                setEditCard({
+                                  ...editCard,
+                                  [row["ContactType"]]:
+                                    editCard[row["ContactType"]] === undefined
+                                      ? true
+                                      : !editCard[row["ContactType"]],
+                                });
+                              }}
+                              style={[styles.buttonContainer]}
                             >
-                              {"Remove"}
-                            </CustomText>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </>
+                              <CustomText style={styles["btn"]}>
+                                {"Edit"}
+                              </CustomText>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={(e) => {
+                                setModalVisible({
+                                  Remove: true,
+                                  Data: row,
+                                });
+                              }}
+                              style={[
+                                [styles.buttonContainer],
+                                // { backgroundColor: "#ffb752" },
+                                { backgroundColor: "#ec971f" },
+                              ]}
+                            >
+                              <CustomText
+                                style={[styles["btn"], { color: "white" }]}
+                              >
+                                {"Remove"}
+                              </CustomText>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </>
+                    )}
                     <>
                       {editCard[row["ContactType"]] ? (
                         <View style={styles["btn"]}>
@@ -977,60 +1130,67 @@ export default function VendorContacts() {
                         { "grid-template-columns": "repeat(3, 1fr)" },
                       ]}
                     >
-                      {sellerInfo["RowData"].map((e) => (
-                        <View style={{ gap: 10 }}>
-                          <View>
-                            <View style={{ maxWidth: 250, marginRight: 5 }}>
-                              <CustomText
-                                onPress={(e) => {
-                                  toggleModal("Seller");
-                                }}
-                                style={styles["card-text-underline"]}
-                                bold={true}
-                              >
-                                {e.AgentFN}
-                              </CustomText>
+                      {sellerInfo["RowData"].map((e, index) => (
+                        <>
+                          {index < 3 && (
+                            <View style={{ gap: 10 }}>
+                              <View>
+                                <View style={{ maxWidth: 250, marginRight: 5 }}>
+                                  <CustomText
+                                    onPress={(e) => {
+                                      toggleModal("Seller");
+                                    }}
+                                    style={styles["card-text-underline"]}
+                                    bold={true}
+                                  >
+                                    {e.AgentFN}
+                                  </CustomText>
+                                </View>
+                              </View>
+                              <View>
+                                <CustomText
+                                  onPress={() => {
+                                    let subject = "",
+                                      body = "";
+                                    const emailUrl = `mailto:${
+                                      e.AgentEmail
+                                    }?subject=${encodeURIComponent(
+                                      subject
+                                    )}&body=${encodeURIComponent(body)}`;
+                                    Linking.openURL(emailUrl);
+                                  }}
+                                  style={styles["card-text-underline"]}
+                                >
+                                  {e.AgentEmail}
+                                </CustomText>
+                              </View>
+                              <View>
+                                <CustomText
+                                  onPress={() => {
+                                    let phoneNumber = e.Phone?.replaceAll(
+                                      "-",
+                                      ""
+                                    )
+                                      .replaceAll("(", "")
+                                      .replaceAll(")", "")
+                                      .replaceAll(" ", "");
+
+                                    phoneNumber = `tel:${phoneNumber}`;
+
+                                    Linking.canOpenURL(phoneNumber)
+                                      .then((supported) => {
+                                        return Linking.openURL(phoneNumber);
+                                      })
+                                      .catch((err) => console.log(err));
+                                  }}
+                                  style={styles["card-text-underline"]}
+                                >
+                                  {e.Phone}
+                                </CustomText>
+                              </View>
                             </View>
-                          </View>
-                          <View>
-                            <CustomText
-                              onPress={() => {
-                                let subject = "",
-                                  body = "";
-                                const emailUrl = `mailto:${
-                                  e.AgentEmail
-                                }?subject=${encodeURIComponent(
-                                  subject
-                                )}&body=${encodeURIComponent(body)}`;
-                                Linking.openURL(emailUrl);
-                              }}
-                              style={styles["card-text-underline"]}
-                            >
-                              {e.AgentEmail}
-                            </CustomText>
-                          </View>
-                          <View>
-                            <CustomText
-                              onPress={() => {
-                                let phoneNumber = e.Phone?.replaceAll("-", "")
-                                  .replaceAll("(", "")
-                                  .replaceAll(")", "")
-                                  .replaceAll(" ", "");
-
-                                phoneNumber = `tel:${phoneNumber}`;
-
-                                Linking.canOpenURL(phoneNumber)
-                                  .then((supported) => {
-                                    return Linking.openURL(phoneNumber);
-                                  })
-                                  .catch((err) => console.log(err));
-                              }}
-                              style={styles["card-text-underline"]}
-                            >
-                              {e.Phone}
-                            </CustomText>
-                          </View>
-                        </View>
+                          )}
+                        </>
                       ))}
                     </View>
                   </View>
@@ -1135,16 +1295,7 @@ export default function VendorContacts() {
                                   <View>
                                     <TouchableOpacity
                                       onPress={(e) => {
-                                        setEditCompany({
-                                          ...editCompany,
-                                          [row["ContactType"]]:
-                                            editCompany[row["ContactType"]] ===
-                                            undefined
-                                              ? true
-                                              : !editCompany[
-                                                  row["ContactType"]
-                                                ],
-                                        });
+                                        handleCompanyChange(row["ContactType"]);
                                       }}
                                       style={[
                                         [styles.buttonContainer],
@@ -1178,7 +1329,10 @@ export default function VendorContacts() {
                                     ]}
                                   >
                                     <InputField
-                                      value={AutoCinput}
+                                      autoFocus
+                                      value={
+                                        AutoCinput[row["ContactType"]] || ""
+                                      }
                                       label="Search for Company or Agent Name, Email or Cell Phone"
                                       type="default"
                                       name="EmailorCellPhone"
@@ -1197,84 +1351,87 @@ export default function VendorContacts() {
                                         top: 35,
                                       }}
                                     >
-                                      {otherProps.IsShowSpinner && (
+                                      {otherProps[row["ContactType"]] && (
                                         <View style={{ right: 30 }}>
                                           <ArrowSpinner />
                                         </View>
                                       )}
-                                      <FontAwesome
-                                        name="close"
-                                        style={[
-                                          styles["modal-close"],
-                                          {
-                                            color: "red",
-                                            cursor: "pointer",
-                                            opacity: 0.8,
-                                            top: -2,
-                                          },
-                                        ]}
-                                        strokeWidth={30}
-                                        size={17}
-                                        color={"black"}
-                                        onPress={(e) => {
-                                          setEditCompany({
-                                            ...editCompany,
-                                            [row["ContactType"]]:
-                                              editCompany[
-                                                row["ContactType"]
-                                              ] === undefined
-                                                ? true
-                                                : false,
-                                          });
-                                          setData({ [row["ContactType"]]: [] });
-                                        }}
-                                      />
-                                    </CustomText>
-
-                                    <FlatList
-                                      style={styles["search-drop-down"]}
-                                      data={AutoCompdata[row["ContactType"]]}
-                                      showsVerticalScrollIndicator={true}
-                                      removeClippedSubviews={true}
-                                      ref={flatListRef}
-                                      renderItem={({ item, index: i }) => (
-                                        <Pressable
-                                          ref={btnAddNewRef}
-                                          style={({ pressed }) => [
+                                      {!validation[row["ContactType"]] && (
+                                        <FontAwesome
+                                          name="close"
+                                          style={[
+                                            styles["modal-close"],
                                             {
-                                              opacity: pressed ? 0.5 : 1,
-                                              borderWidth: 1,
-                                              borderColor: "silver",
-                                              borderTopWidth: 0,
-                                              backgroundColor:
-                                                i === selectedItemIndex
-                                                  ? "yellow"
-                                                  : // : i % 2 == 0
-                                                    // ? "#d9ecff"
-                                                    "#fff",
-                                              // },
+                                              color: "red",
+                                              cursor: "pointer",
+                                              opacity: 0.8,
+                                              top: -2,
                                             },
-                                            isHovered && styles["HoverBgColor"],
                                           ]}
-                                          // onMouseEnter={handleMouseEnter}
-                                          // onMouseLeave={handleMouseLeave}
+                                          strokeWidth={30}
+                                          size={17}
+                                          color={"black"}
                                           onPress={(e) => {
-                                            handleCompanySelection(
-                                              item,
-                                              index,
-                                              "Confirmation"
-                                            );
+                                            setEditCompany({
+                                              // ...editCompany,
+                                              [row["ContactType"]]:
+                                                editCompany[
+                                                  row["ContactType"]
+                                                ] === undefined
+                                                  ? true
+                                                  : false,
+                                            });
+                                            setData({
+                                              [row["ContactType"]]: [],
+                                            });
                                           }}
-                                        >
-                                          <View>
-                                            {GetItemText(item, index)}
-                                          </View>
-                                        </Pressable>
+                                        />
                                       )}
-                                      keyExtractor={(item, i) =>
-                                        item.place_id + i
-                                      }
-                                    />
+                                    </CustomText>
+                                    {AutoCompdata[row["ContactType"]] && (
+                                      <FlatList
+                                        style={styles["search-drop-down"]}
+                                        data={AutoCompdata[row["ContactType"]]}
+                                        showsVerticalScrollIndicator={true}
+                                        removeClippedSubviews={true}
+                                        ref={flatListRef}
+                                        renderItem={({ item, index: i }) => (
+                                          <Pressable
+                                            ref={btnAddNewRef}
+                                            style={({ pressed }) => [
+                                              {
+                                                opacity: pressed ? 0.5 : 1,
+                                                borderWidth: 1,
+                                                borderColor: "silver",
+                                                borderTopWidth: 0,
+                                                backgroundColor:
+                                                  i === selectedItemIndex
+                                                    ? "yellow"
+                                                    : i % 2 == 0
+                                                    ? "#d9ecff"
+                                                    : "#fff",
+                                              },
+                                              isHovered &&
+                                                styles["HoverBgColor"],
+                                            ]}
+                                            onPress={(e) => {
+                                              handleCompanySelection(
+                                                AutoCompdata[
+                                                  row["ContactType"]
+                                                ][selectedItemIndex],
+                                                index,
+                                                "Confirmation"
+                                              );
+                                            }}
+                                          >
+                                            <View>
+                                              {GetItemText(item, index)}
+                                            </View>
+                                          </Pressable>
+                                        )}
+                                        keyExtractor={(item) => item.id}
+                                      />
+                                    )}
                                   </View>
                                   {AutoCompdata[row["ContactType"]] ===
                                     undefined ||
@@ -1321,11 +1478,13 @@ export default function VendorContacts() {
                                     {row.CompanyAddress?.split(",")[0]}
                                   </CustomText>
                                   <CustomText>
-                                    {row.CompanyAddress?.split(", ")
+                                    {/* {row.CompanyAddress?.split(", ")
                                       .slice(1)
                                       .join(", ")
                                       .trim()
                                       .replace(/ ,/g, ",")}
+                                       */}
+                                    {getAddress(row.CompanyAddress)}
                                   </CustomText>
                                 </View>
 
@@ -2095,9 +2254,9 @@ export default function VendorContacts() {
                               [styles.buttonContainer],
                               { alignSelf: "center", padding: 5 },
                             ]}
-                            // onPress={(e) => {
-                            //   console.log(`${index} ${rowData.ContactTypename}`);
-                            // }}
+                            onPress={(e) => {
+                              handleRemoveSellerOrAgent(rowData);
+                            }}
                           >
                             <CustomText
                               style={[styles["btn"], { fontSize: 10 }]}
@@ -2184,7 +2343,7 @@ export default function VendorContacts() {
                 ]}
               >
                 <InputField
-                  value={AutoCinput}
+                  value={AutoCinput["0"] || ""}
                   label="Add Company or Seller Name, Email or Cell Phone"
                   type="default"
                   name="EmailorCellPhone"
@@ -2230,7 +2389,7 @@ export default function VendorContacts() {
             </Table>
           </View>
         </Modal>
-        {/* Confirmation Modal */}
+        {/* IsSame Confirmation Modal */}
         <Modal
           isVisible={isModalVisible.Confirmation}
           onBackdropPress={() =>
@@ -2280,10 +2439,10 @@ export default function VendorContacts() {
                   { alignSelf: "center", padding: 5 },
                 ]}
                 onPress={() => {
-                  handleIfSameTitle("", "", 1);
+                  handleIfSameTitle("", "", 0);
                 }}
               >
-                <CustomText style={[styles["btn"]]}>{"Yes"}</CustomText>
+                <CustomText style={[styles["btn"]]}>{" No "}</CustomText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -2291,10 +2450,89 @@ export default function VendorContacts() {
                   { alignSelf: "center", padding: 5 },
                 ]}
                 onPress={() => {
-                  handleIfSameTitle("", "", 0);
+                  handleIfSameTitle("", "", 1);
+                }}
+              >
+                <CustomText style={[styles["btn"]]}>{"Yes"}</CustomText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+        {/* Remove Confirmation Modal */}
+        <Modal
+          isVisible={isModalVisible.Remove}
+          onBackdropPress={() =>
+            setModalVisible({ isModalVisible, Remove: false })
+          }
+          style={{
+            backgroundColor: "#fff",
+            maxWidth: Platform.OS === "web" ? "1000px" : null,
+            flex: null,
+            alignSelf: Platform.OS === "web" ? "center" : null,
+          }}
+        >
+          <View>
+            <View style={styles["modal-header"]}>
+              <CustomText style={styles["modal-header-title"]}>
+                {"Confirmation"}
+              </CustomText>
+              <AntDesign
+                name="close"
+                style={styles["modal-close"]}
+                strokeWidth={30}
+                size={24}
+                color={"black"}
+                onPress={(e) => {
+                  toggleModal("Remove");
+                }}
+              />
+            </View>
+            <View
+              style={[
+                styles["modal-container"],
+                { minWidth: 350, marginLeft: 20 },
+              ]}
+            >
+              <CustomText>
+                {isModalVisible.Data && (
+                  <>
+                    Are you sure want to Remove{" "}
+                    <CustomText bold={true}>
+                      {isModalVisible.Data.ContactTypename}:{" "}
+                      {isModalVisible.Data.Companyname}
+                    </CustomText>{" "}
+                    from the Loan{" "}
+                    <CustomText bold={true}>
+                      {"("}
+                      {isModalVisible.Data.Loanid}
+                      {")"}
+                    </CustomText>
+                  </>
+                )}
+              </CustomText>
+            </View>
+            <View style={styles["modal-footer"]}>
+              <TouchableOpacity
+                style={[
+                  [styles.buttonContainer],
+                  { alignSelf: "center", padding: 5 },
+                ]}
+                onPress={() => {
+                  setModalVisible({ isModalVisible, Remove: false });
                 }}
               >
                 <CustomText style={[styles["btn"]]}>{" No "}</CustomText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  [styles.buttonContainer],
+                  { alignSelf: "center", padding: 5 },
+                ]}
+                onPress={() => {
+                  handleRemoveSellerOrAgent(isModalVisible.Data);
+                }}
+              >
+                <CustomText style={[styles["btn"]]}>{"Yes"}</CustomText>
               </TouchableOpacity>
             </View>
           </View>
@@ -2334,6 +2572,7 @@ const styles = StyleSheet.create({
       ? {
           minWidth: "450px",
           maxWidth: "450px",
+          boxShadow: "3px 7px 10px 4px rgb(0 0 0 / 8%)",
         }
       : {}),
   },

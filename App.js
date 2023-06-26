@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import {
   handleWebPageOpen,
   handleParamFromURL,
+  handleAPI,
 } from "./components/controls/CommonFunctions";
 import VendorContacts from "./components/VendorContacts";
 import DropdownInput from "./components/DropDown";
@@ -19,10 +20,30 @@ import ScrollContainer from "./components/controls/ScrollContainer";
 
 export default function App() {
   const [isNavOpen, setNavOpen] = useState({ left: false, right: false });
-  const [selectedValue, setSelectedValue] = useState("");
-
-  const handleChange = (itemValue) => {
-    setSelectedValue(itemValue);
+  const fnSaveWindowSizePosition = () => {
+    let JsonObj = {};
+    JsonObj.Width = window.innerWidth;
+    JsonObj.Height = window.innerHeight;
+    JsonObj.Left = window.screenX;
+    JsonObj.Top = window.screenY;
+    handleAPI({
+      name: "SaveWindowSizePosition",
+      params: {
+        SessionID: handleParamFromURL(document.location.href, "SessionId"),
+        ViewJSON: JSON.stringify(JsonObj),
+        Updateflag: 1,
+        FormID: 0,
+        FormName: "VendorReact",
+      },
+      method: "POST",
+    })
+      .then((response) => {
+        setNavOpen({ ...isNavOpen, right: !isNavOpen["right"] });
+        console.log("fnSaveWindowSizePosition response ==>", response);
+      })
+      .catch((e) =>
+        console.log("Error in fnSaveWindowSizePositio method => ", e)
+      );
   };
   return (
     <ScrollContainer>
@@ -31,12 +52,6 @@ export default function App() {
           <CustomText style={styles.pageheader}>
             <View>
               <View style={styles.navBarRight}>
-                {/* <Button
-                onPress={() => {
-                  setNavOpen({ ...isNavOpen, right: !isNavOpen["right"] });
-                }}
-                title={<CustomText bold={true}>Settings & Log Out</CustomText>}
-              /> */}
                 <TouchableOpacity
                   style={[
                     [styles.buttonContainer],
@@ -66,7 +81,7 @@ export default function App() {
                     <>
                       <CustomText
                         //key={index}
-                        //onPress={item["onPress"]}
+                        onPress={fnSaveWindowSizePosition}
                         style={styles.navRightOption}
                       >
                         Save Window Size and Position
@@ -217,5 +232,6 @@ const styles = StyleSheet.create({
     color: "#333333",
     borderBottomWidth: 1,
     borderBottomColor: "#dfd8d8",
+    cursor: "pointer",
   },
 });
