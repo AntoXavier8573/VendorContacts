@@ -22,6 +22,7 @@ const InputBox = (props) => {
     secureTextEntry,
     validate,
     border,
+    backgroundColor,
   } = props;
 
   const [fontsLoaded] = useFonts({
@@ -51,7 +52,13 @@ const InputBox = (props) => {
         },
       ]}
     >
-      <CustomText bold={true} style={styles.inputBoxLabel}>
+      <CustomText
+        bold={true}
+        style={[
+          styles.inputBoxLabel,
+          { backgroundColor: backgroundColor || "#fff" },
+        ]}
+      >
         {label || ""}
       </CustomText>
       <TextInput

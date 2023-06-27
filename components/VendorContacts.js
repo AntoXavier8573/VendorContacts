@@ -173,14 +173,18 @@ export default function VendorContacts() {
     EditRow: [],
     ModifiedJson: [],
   });
-  const btnAddNewRef = useRef(null);
-  const flatListRef = useRef(null);
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
   const [validation, setValidation] = useState({});
+  const [focusInput, setFocusInpt] = useState({});
+
+  //useRef
+  const btnAddNewRef = useRef(null);
+  const flatListRef = useRef(null);
+  const searchInputRef = useRef(null);
   useEffect(() => {
     const handleKeyDown = (e) => {
-      console.log("key Pressed ===>", AutoCompdata);
-      console.log("Selected index ===>", selectedItemIndex);
+      console.log("onchange triggerrd");
+
       //if (selectedItemIndex === 0) btnAddNewRef.current.focus();
       if (e.key === "ArrowUp" && selectedItemIndex > 0) {
         setSelectedItemIndex(selectedItemIndex - 1);
@@ -208,6 +212,14 @@ export default function VendorContacts() {
             viewPosition: 0,
           });
         }, 100);
+      } else if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        const index = fnGetIndex(Object.keys(AutoCompdata)[0]);
+        handleCompanySelection(
+          AutoCompdata[Object.keys(AutoCompdata)[0]][selectedItemIndex],
+          index,
+          "Confirmation"
+        );
       }
     };
 
@@ -266,7 +278,7 @@ export default function VendorContacts() {
       GetVendoronload();
     }, []);
   }
-
+  console.log("focusInput", focusInput);
   const GetVendoronload = () => {
     let qString = "",
       sParams = "";
@@ -356,15 +368,58 @@ export default function VendorContacts() {
       .catch((e) => console.log("Get API => ", e));
     // setCardInfo(rows); // Testing purpose
   };
-
+  const fnFocusInput = (e, row) => {
+    // console.log("on key press triggerrd");
+    // if (e.key === "ArrowUp" && selectedItemIndex == 0) {
+    //   setFocusInpt({ ...focusInput, ...{ [row["ContactType"]]: false } });
+    //   // alert();
+    // }
+    // if (e.key === "ArrowUp" && selectedItemIndex > 0) {
+    //   setSelectedItemIndex(selectedItemIndex - 1);
+    //   setTimeout(() => {
+    //     flatListRef.current.scrollToItem({
+    //       animated: true,
+    //       item: AutoCompdata[Object.keys(AutoCompdata)[0]][
+    //         selectedItemIndex - 1
+    //       ],
+    //       viewPosition: 0.5,
+    //     });
+    //   }, 100);
+    // } else if (
+    //   e.key === "ArrowDown" &&
+    //   selectedItemIndex < otherProps.ComponySearchCount - 1
+    // ) {
+    //   // if (selectedItemIndex === 0) btnAddNewRef.current.focus();
+    //   setSelectedItemIndex(selectedItemIndex + 1);
+    //   setTimeout(() => {
+    //     flatListRef.current.scrollToItem({
+    //       animated: true,
+    //       item: AutoCompdata[Object.keys(AutoCompdata)[0]][
+    //         selectedItemIndex + 1
+    //       ],
+    //       viewPosition: 0,
+    //     });
+    //   }, 0);
+    // }
+    if (e.key === "ArrowDown" && selectedItemIndex === 0) {
+      // setTimeout(() => {
+      //   btnAddNewRef.current.focus();
+      // }, 0);
+      flatListRef.current.scrollToItem({
+        animated: true,
+        item: AutoCompdata[Object.keys(AutoCompdata)[0]][selectedItemIndex + 1],
+        viewPosition: 0.5,
+      });
+    }
+  };
   const handleCardChange = (index, name, value) => {
     setCardInfo((PrevObj) => {
       const updateObj = [...PrevObj];
       updateObj[index] = {
         ...PrevObj[index],
         [name]: value,
-        IsModified: 1,
-        isNew: 0,
+        IsModified: cardInfo[index].isNew === 1 ? 0 : 1,
+        isNew: cardInfo[index].isNew !== 1 ? 0 : 1,
       };
       return updateObj;
     });
@@ -417,11 +472,7 @@ export default function VendorContacts() {
               ...editCard,
               [finalJson[0]["ContactType"]]: false,
             });
-            let SplitName = finalJson[0].AgentFN.split(" ");
-
-            let AgentName = `${finalJson[0].FirstName}${finalJson[0].Nickname}${
-              SplitName[SplitName.length - 1]
-            }`;
+            let AgentName = `${finalJson[0].FirstName}${finalJson[0].Nickname}${finalJson[0].LastName}`;
             setResult((PrevObj) => {
               const updateObj = [...PrevObj];
               updateObj[index] = {
@@ -593,11 +644,7 @@ export default function VendorContacts() {
           <TouchableOpacity
             autoFocus
             onPress={(e) => {
-              setEditCard({
-                ...editCard,
-                [item.ActualType]: true,
-              });
-              console.log("Add New", item.ActualType);
+              handleAddNew(item);
             }}
             style={[
               [styles.buttonContainer],
@@ -610,22 +657,23 @@ export default function VendorContacts() {
             <CustomText style={[styles["btn"]]}>{"Add New"}</CustomText>
           </TouchableOpacity>
         )
-      ) : (
-        <TouchableOpacity
-          onPress={(e) => {
-            setEditCard({
-              ...editCard,
-              [item.ActualType]: true,
-            });
-          }}
-          style={[
-            [styles.buttonContainer],
-            { width: Platform.OS === "web" ? "fit-content" : null, margin: 10 },
-          ]}
-        >
-          <CustomText style={[styles["btn"]]}>{"Add New"}</CustomText>
-        </TouchableOpacity>
-      )
+      ) : null
+      // (
+      //   <TouchableOpacity
+      //     onPress={(e) => {
+      //       setEditCard({
+      //         ...editCard,
+      //         [item.ActualType]: true,
+      //       });
+      //     }}
+      //     style={[
+      //       [styles.buttonContainer],
+      //       { width: Platform.OS === "web" ? "fit-content" : null, margin: 10 },
+      //     ]}
+      //   >
+      //     <CustomText style={[styles["btn"]]}>{"Add New"}</CustomText>
+      //   </TouchableOpacity>
+      // )
     );
     return <>{views}</>;
   };
@@ -852,9 +900,25 @@ export default function VendorContacts() {
     })
       .then((response) => {
         if (Data.ContactSourceType === "S") {
-          const Result = sellerInfo.RowData.filter((e) => {
+          let Result = sellerInfo.RowData.filter((e) => {
             return e.AgentID !== Data.AgentID;
           });
+          if (Result.length === 0) {
+            setModalVisible({ isModalVisible, Remove: false });
+            Result = [
+              {
+                Loanid: handleParamFromURL(document.location.href, "LoanId"),
+                ContactType: 0,
+                ContactTypename: "Seller",
+                VendorId: 0,
+                AgentID: 0,
+                isCard: 1,
+                ContactSourceType: "S",
+                isEditRestricted: 0,
+                DisplaySeller: 1,
+              },
+            ];
+          }
           setSellerInfo({ ...sellerInfo, RowData: Result });
         } else {
           setModalVisible({ isModalVisible, Remove: false });
@@ -930,7 +994,61 @@ export default function VendorContacts() {
       ],
     });
   };
+  const handleAddNew = (item) => {
+    setEditCard({
+      ...editCard,
+      [item.ActualType]: true,
+    });
 
+    const index = fnGetIndex(item.ActualType);
+    setCardInfo((PrevObj) => {
+      const updateObj = [...PrevObj];
+      updateObj[index] = {
+        ["ContactType"]: item.ActualType,
+        ["ContactTypename"]: result[index].ContactTypename,
+        ["isCard"]: 1,
+        ["Companyname"]: AutoCinput[item.ActualType] || "",
+        isNew: 1,
+      };
+      return updateObj;
+    });
+  };
+  const handleCloseEditCompany = (row) => {
+    setEditCompany({
+      ...editCompany,
+      [row["ContactType"]]:
+        editCompany[row["ContactType"]] === undefined ? true : false,
+    });
+    setData({
+      [row["ContactType"]]: [],
+    });
+    setInput({ ...AutoCinput, [row["ContactType"]]: "" });
+    const index = fnGetIndex(row["ContactType"]);
+    setCardInfo((PrevObj) => {
+      const updateObj = [...PrevObj];
+      updateObj[index] = result[index];
+      return updateObj;
+    });
+  };
+  const handleEditCard = (row) => {
+    setEditCard({
+      ...editCard,
+      [row["ContactType"]]:
+        editCard[row["ContactType"]] === undefined
+          ? true
+          : !editCard[row["ContactType"]],
+    });
+    const index = fnGetIndex(row["ContactType"]);
+
+    setCardInfo((PrevObj) => {
+      const updateObj = [...PrevObj];
+      updateObj[index] = {
+        ...updateObj[index],
+        isNew: 0,
+      };
+      return updateObj;
+    });
+  };
   return (
     <View>
       {result.length === 0 && (
@@ -948,7 +1066,8 @@ export default function VendorContacts() {
             key={index}
             style={[
               styles["card-container"],
-              (index === 1 && row["IsEmpty"]) || (index === 5 && row["IsEmpty"])
+              (index === 1 && row["DisplaySeller"] == 0) ||
+              (index === 5 && row["IsEmpty"])
                 ? styles["card-hide"]
                 : "",
               (index === 1 && row["IsEmpty"] && windowWidth < 1000) ||
@@ -967,45 +1086,40 @@ export default function VendorContacts() {
                   <>
                     {!validation[row["ContactType"]] && (
                       <>
-                        {!editCard[row["ContactType"]] && (
-                          <View style={styles["btn"]}>
-                            <TouchableOpacity
-                              onPress={(e) => {
-                                setEditCard({
-                                  ...editCard,
-                                  [row["ContactType"]]:
-                                    editCard[row["ContactType"]] === undefined
-                                      ? true
-                                      : !editCard[row["ContactType"]],
-                                });
-                              }}
-                              style={[styles.buttonContainer]}
-                            >
-                              <CustomText style={styles["btn"]}>
-                                {"Edit"}
-                              </CustomText>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={(e) => {
-                                setModalVisible({
-                                  Remove: true,
-                                  Data: row,
-                                });
-                              }}
-                              style={[
-                                [styles.buttonContainer],
-                                // { backgroundColor: "#ffb752" },
-                                { backgroundColor: "#ec971f" },
-                              ]}
-                            >
-                              <CustomText
-                                style={[styles["btn"], { color: "white" }]}
+                        {!editCard[row["ContactType"]] &&
+                          !editCompany[row["ContactType"]] && (
+                            <View style={styles["btn"]}>
+                              <TouchableOpacity
+                                onPress={(e) => {
+                                  handleEditCard(row);
+                                }}
+                                style={[styles.buttonContainer]}
                               >
-                                {"Remove"}
-                              </CustomText>
-                            </TouchableOpacity>
-                          </View>
-                        )}
+                                <CustomText style={styles["btn"]}>
+                                  {"Edit"}
+                                </CustomText>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={(e) => {
+                                  setModalVisible({
+                                    Remove: true,
+                                    Data: row,
+                                  });
+                                }}
+                                style={[
+                                  [styles.buttonContainer],
+                                  // { backgroundColor: "#ffb752" },
+                                  { backgroundColor: "#ec971f" },
+                                ]}
+                              >
+                                <CustomText
+                                  style={[styles["btn"], { color: "white" }]}
+                                >
+                                  {"Remove"}
+                                </CustomText>
+                              </TouchableOpacity>
+                            </View>
+                          )}
                       </>
                     )}
                     <>
@@ -1043,18 +1157,9 @@ export default function VendorContacts() {
                   </>
                 ) : (
                   <>
-                    {sellerInfo["AddSeller"] !== true ? (
+                    {sellerInfo["RowData"].length === 1 &&
+                    sellerInfo["RowData"][0].AgentID == 0 ? null : (
                       <View style={styles["btn"]}>
-                        {/* <TouchableOpacity
-                          style={[styles.buttonContainer]}
-                          onPress={(e) => {
-                            setSellerInfo({ ...sellerInfo, AddSeller: true });
-                          }}
-                        >
-                          <CustomText style={styles["btn"]}>
-                            {"Add Additional Seller"}
-                          </CustomText>
-                        </TouchableOpacity> */}
                         <TouchableOpacity
                           onPress={(e) => {
                             toggleModal("Seller");
@@ -1063,29 +1168,6 @@ export default function VendorContacts() {
                         >
                           <CustomText style={styles["btn"]}>
                             {"Edit"}
-                          </CustomText>
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <View style={styles["btn"]}>
-                        <TouchableOpacity
-                          style={[styles.buttonContainer]}
-                          onPress={(e) => {
-                            setSellerInfo({ ...sellerInfo, AddSeller: true });
-                          }}
-                        >
-                          <CustomText style={styles["btn"]}>
-                            {"Save"}
-                          </CustomText>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={(e) => {
-                            setSellerInfo({ ...sellerInfo, AddSeller: false });
-                          }}
-                          style={[styles.buttonContainer]}
-                        >
-                          <CustomText style={styles["btn"]}>
-                            {"Cancel"}
                           </CustomText>
                         </TouchableOpacity>
                       </View>
@@ -1127,67 +1209,131 @@ export default function VendorContacts() {
                     <View
                       style={[
                         styles["card-body"],
-                        { "grid-template-columns": "repeat(3, 1fr)" },
+                        { gridTemplateColumns: "repeat(3, 1fr)" },
                       ]}
                     >
                       {sellerInfo["RowData"].map((e, index) => (
                         <>
                           {index < 3 && (
                             <View style={{ gap: 10 }}>
-                              <View>
-                                <View style={{ maxWidth: 250, marginRight: 5 }}>
-                                  <CustomText
-                                    onPress={(e) => {
-                                      toggleModal("Seller");
+                              {e.AgentID == 0 ? (
+                                <View
+                                  style={[
+                                    styles["card-input"],
+                                    // styles["card-item"],
+                                    Platform.OS !== "web" && {
+                                      flexDirection: "row",
+                                    },
+                                    { width: 430 },
+                                  ]}
+                                >
+                                  <InputField
+                                    value={AutoCinput["0"] || ""}
+                                    label="Add Company or Seller Name, Email or Cell Phone"
+                                    type="default"
+                                    name="EmailorCellPhone"
+                                    onChangeText={(text) => {
+                                      //handleCompanySearch(text, row["ContactType"]);
+                                      // setInput({
+                                      //   ...AutoCinput,
+                                      //   [row["ContactType"]]: text,
+                                      // });
                                     }}
-                                    style={styles["card-text-underline"]}
-                                    bold={true}
-                                  >
-                                    {e.AgentFN}
-                                  </CustomText>
+                                    placeholder="Search for Company or Seller Name, Email or Cell Phone"
+                                  />
+
+                                  <FlatList
+                                    style={styles["search-drop-down"]}
+                                    //data={AutoCompdata[row["ContactType"]]}
+                                    showsVerticalScrollIndicator={true}
+                                    removeClippedSubviews={true}
+                                    renderItem={({ item, index: i }) => (
+                                      <Pressable
+                                        style={({ pressed }) => [
+                                          {
+                                            // opacity: pressed ? 0.5 : 1,
+                                            borderWidth: 1,
+                                            borderColor: "silver",
+                                            borderTopWidth: 0,
+                                            backgroundColor:
+                                              i % 2 == 0 ? "#d9ecff" : "#fff",
+                                          },
+                                        ]}
+                                        // onPress={() =>
+                                        //   alert(
+                                        //     "navigate to page passing in " +
+                                        //       JSON.stringify(item)
+                                        //   )
+                                        // }
+                                      >
+                                        <View>{GetItemText(item, index)}</View>
+                                      </Pressable>
+                                    )}
+                                    keyExtractor={(item, index) =>
+                                      item.place_id + index
+                                    }
+                                  />
                                 </View>
-                              </View>
-                              <View>
-                                <CustomText
-                                  onPress={() => {
-                                    let subject = "",
-                                      body = "";
-                                    const emailUrl = `mailto:${
-                                      e.AgentEmail
-                                    }?subject=${encodeURIComponent(
-                                      subject
-                                    )}&body=${encodeURIComponent(body)}`;
-                                    Linking.openURL(emailUrl);
-                                  }}
-                                  style={styles["card-text-underline"]}
-                                >
-                                  {e.AgentEmail}
-                                </CustomText>
-                              </View>
-                              <View>
-                                <CustomText
-                                  onPress={() => {
-                                    let phoneNumber = e.Phone?.replaceAll(
-                                      "-",
-                                      ""
-                                    )
-                                      .replaceAll("(", "")
-                                      .replaceAll(")", "")
-                                      .replaceAll(" ", "");
+                              ) : (
+                                <>
+                                  <View>
+                                    <View
+                                      style={{ maxWidth: 250, marginRight: 5 }}
+                                    >
+                                      <CustomText
+                                        onPress={(e) => {
+                                          toggleModal("Seller");
+                                        }}
+                                        style={styles["card-text-underline"]}
+                                        bold={true}
+                                      >
+                                        {e.AgentFN}
+                                      </CustomText>
+                                    </View>
+                                  </View>
+                                  <View>
+                                    <CustomText
+                                      onPress={() => {
+                                        let subject = "",
+                                          body = "";
+                                        const emailUrl = `mailto:${
+                                          e.AgentEmail
+                                        }?subject=${encodeURIComponent(
+                                          subject
+                                        )}&body=${encodeURIComponent(body)}`;
+                                        Linking.openURL(emailUrl);
+                                      }}
+                                      style={styles["card-text-underline"]}
+                                    >
+                                      {e.AgentEmail}
+                                    </CustomText>
+                                  </View>
+                                  <View>
+                                    <CustomText
+                                      onPress={() => {
+                                        let phoneNumber = e.Phone?.replaceAll(
+                                          "-",
+                                          ""
+                                        )
+                                          .replaceAll("(", "")
+                                          .replaceAll(")", "")
+                                          .replaceAll(" ", "");
 
-                                    phoneNumber = `tel:${phoneNumber}`;
+                                        phoneNumber = `tel:${phoneNumber}`;
 
-                                    Linking.canOpenURL(phoneNumber)
-                                      .then((supported) => {
-                                        return Linking.openURL(phoneNumber);
-                                      })
-                                      .catch((err) => console.log(err));
-                                  }}
-                                  style={styles["card-text-underline"]}
-                                >
-                                  {e.Phone}
-                                </CustomText>
-                              </View>
+                                        Linking.canOpenURL(phoneNumber)
+                                          .then((supported) => {
+                                            return Linking.openURL(phoneNumber);
+                                          })
+                                          .catch((err) => console.log(err));
+                                      }}
+                                      style={styles["card-text-underline"]}
+                                    >
+                                      {e.Phone}
+                                    </CustomText>
+                                  </View>
+                                </>
+                              )}
                             </View>
                           )}
                         </>
@@ -1329,7 +1475,8 @@ export default function VendorContacts() {
                                     ]}
                                   >
                                     <InputField
-                                      autoFocus
+                                      autoFocus={focusInput[row["ContactType"]]}
+                                      //ref={searchInputRef}
                                       value={
                                         AutoCinput[row["ContactType"]] || ""
                                       }
@@ -1341,6 +1488,9 @@ export default function VendorContacts() {
                                           text,
                                           row["ContactType"]
                                         );
+                                      }}
+                                      onKeyPress={(e) => {
+                                        fnFocusInput(e, row);
                                       }}
                                       placeholder="Search for Company or Agent Name, Email or Cell Phone"
                                     />
@@ -1372,18 +1522,7 @@ export default function VendorContacts() {
                                           size={17}
                                           color={"black"}
                                           onPress={(e) => {
-                                            setEditCompany({
-                                              // ...editCompany,
-                                              [row["ContactType"]]:
-                                                editCompany[
-                                                  row["ContactType"]
-                                                ] === undefined
-                                                  ? true
-                                                  : false,
-                                            });
-                                            setData({
-                                              [row["ContactType"]]: [],
-                                            });
+                                            handleCloseEditCompany(row);
                                           }}
                                         />
                                       )}
@@ -1713,225 +1852,304 @@ export default function VendorContacts() {
                     </>
                   ) : (
                     //Editing view Starts here
-                    <View style={styles["card-body"]}>
-                      <View style={[styles["card-input"], styles["card-item"]]}>
-                        <InputField
-                          label="Company Name"
-                          autoFocus
-                          type="default"
-                          name="CompanyName"
-                          value={cardInfo[index]["Companyname"]}
-                          placeholder="Company Name"
-                          onChangeText={(Text) => {
-                            handleCardChange(index, "Companyname", Text);
-                          }}
-                        />
-                      </View>
-                      <View style={[styles["card-input"], styles["card-item"]]}>
-                        <InputField
-                          label="Agent Name"
-                          //autoFocus
-                          type="default"
-                          name="AgentName"
-                          value={cardInfo[index]["AgentFN"]}
-                          placeholder="Name"
-                          onChangeText={(Text) => {
-                            handleCardChange(index, "AgentFN", Text);
-                          }}
-                        />
-                      </View>
-                      <View style={[styles["card-input"], styles["card-item"]]}>
-                        <InputField
-                          label="Company Street Address"
-                          //   autoFocus
-                          type="default"
-                          name="CompanyStreetAddr"
-                          value={cardInfo[index]["CompanyStreetAddr"]}
-                          placeholder="Street Address"
-                          onChangeText={(Text) => {
-                            handleCardChange(index, "CompanyStreetAddr", Text);
-                          }}
-                        />
-                      </View>
-                      {row["ContactType"] !== 7 ? (
-                        <View
-                          style={[styles["card-input"], styles["card-item"]]}
-                        >
-                          <InputField
-                            label="Agent License "
-                            // autoFocus
-                            type="default"
-                            name=""
-                            value={cardInfo[index]["AgentLicense"]}
-                            placeholder="Agent License "
-                            onChangeText={(Text) => {
-                              handleCardChange(index, "AgentLicense", Text);
-                            }}
-                            // style ={styles.InputField}
-                          />
-                        </View>
-                      ) : (
-                        <View
-                          style={[styles["card-input"], styles["card-item"]]}
-                        ></View>
-                      )}
-
-                      <View style={[styles["card-input"], styles["card-item"]]}>
-                        <InputField
-                          label="Company Zip"
-                          //   autoFocus
-                          type="default"
-                          name="CompanyAddress"
-                          value={cardInfo[index]["CompanyZip"]}
-                          placeholder="Company Zip"
-                          onChangeText={(Text) => {
-                            handleCardChange(index, "CompanyZip", Text);
-                          }}
-                          onBlur={(e) => {
-                            fnAutoPopulateStateCity(
-                              cardInfo[index]["CompanyZip"],
-                              index
-                            );
-                          }}
-                        />
-                      </View>
-                      <View style={[styles["card-input"], styles["card-item"]]}>
-                        <InputField
-                          label="Agent Phone"
-                          // autoFocus
-                          type="default"
-                          name=""
-                          value={cardInfo[index]["Phone"]}
-                          placeholder="Agent Phone"
-                          onChangeText={(Text) => {
-                            handleCardChange(index, "Phone", Text);
-                          }}
-                          onBlur={(e) => {
-                            let number = FormatPhoneLogin(
-                              cardInfo[index]["Phone"]
-                            );
-                            handleCardChange(index, "Phone", number);
-                          }}
-                        />
-                      </View>
-                      <View style={[styles["card-input"], styles["card-item"]]}>
-                        <InputField
-                          label="Company City"
-                          //   autoFocus
-                          type="default"
-                          name="CompanyAddress"
-                          value={cardInfo[index]["CompanyCity"] || ""}
-                          placeholder="Company City"
-                          onChangeText={(Text) => {
-                            handleCardChange(index, "CompanyCity", Text);
-                          }}
-                        />
-                      </View>
-                      <View style={[styles["card-input"], styles["card-item"]]}>
-                        <InputField
-                          label="Agent Email"
-                          //autoFocus
-                          type="default"
-                          name=""
-                          value={cardInfo[index]["AgentEmail"]}
-                          placeholder="Agent Email"
-                          onChangeText={(Text) => {
-                            handleCardChange(index, "AgentEmail", Text);
-                          }}
-                        />
-                      </View>
-                      <View style={[styles["card-input"], styles["card-item"]]}>
-                        <InputField
-                          label="Company State"
-                          //   autoFocus
-                          type="default"
-                          name="CompanyState"
-                          value={cardInfo[index]["CompanyState"] || ""}
-                          placeholder="Company State"
-                          onChangeText={(Text) => {
-                            handleCardChange(index, "CompanyState", Text);
-                          }}
-                        />
-                      </View>
-                      {cardInfo[index]["ContactType"] !== 7 && (
-                        <View
-                          style={[styles["card-input"], styles["card-item"]]}
-                        ></View>
-                      )}
-
-                      {/* Phone */}
-                      <View style={[styles["card-input"], styles["card-item"]]}>
-                        <InputField
-                          label="Company Phone"
-                          //autoFocus
-                          type="default"
-                          name=""
-                          value={cardInfo[index]["CompPhone"]}
-                          placeholder="Company Phone"
-                          onChangeText={(Text) => {
-                            handleCardChange(index, "CompPhone", Text);
-                          }}
-                          onBlur={(e) => {
-                            let number = FormatPhoneLogin(
-                              cardInfo[index]["CompPhone"]
-                            );
-                            handleCardChange(index, "CompPhone", number);
-                          }}
-                        />
-                      </View>
+                    <>
                       <View
-                        style={[styles["card-input"], styles["card-item"]]}
-                      ></View>
-                      {cardInfo[index]["ContactType"] !== 7 ? (
+                        style={[
+                          styles["card-body"],
+                          {
+                            gridTemplateColumns: "repeat(1, 1fr)",
+                            paddingTop: 0,
+                          },
+                        ]}
+                      >
                         <View
                           style={[styles["card-input"], styles["card-item"]]}
                         >
                           <InputField
-                            label="License "
-                            // autoFocus
-                            type="default"
-                            name=""
-                            value={cardInfo[index]["CompanyLicense"]}
-                            placeholder="License "
-                            onChangeText={(Text) => {
-                              handleCardChange(index, "CompanyLicense", Text);
-                            }}
-                          />
-                        </View>
-                      ) : cardInfo[index]["ContactType"] == 7 ? null : (
-                        <View
-                          style={[styles["card-input"], styles["card-item"]]}
-                        ></View>
-                      )}
-                      <View
-                        style={[styles["card-input"], styles["card-item"]]}
-                      ></View>
-                      {[7, 2, 4].includes(row["ContactType"]) && (
-                        <View
-                          style={[styles["card-input"], styles["card-item"]]}
-                        >
-                          <InputField
-                            label={
-                              row["ContactType"] === 7
-                                ? "Policy Number"
-                                : "File Number"
+                            backgroundColor={
+                              cardInfo[index].isNew === 1 ? "yellow" : ""
                             }
+                            label="Company Name"
+                            autoFocus
+                            type="default"
+                            name="CompanyName"
+                            value={cardInfo[index]["Companyname"]}
+                            placeholder="Company Name"
+                            onChangeText={(Text) => {
+                              handleCardChange(index, "Companyname", Text);
+                            }}
+                          />
+                        </View>
+                      </View>
+                      <View style={[styles["card-body"], { paddingTop: 0 }]}>
+                        <View
+                          style={[styles["card-input"], styles["card-item"]]}
+                        >
+                          <InputField
+                            label="Agent First Name"
                             //autoFocus
                             type="default"
-                            name={
-                              row["ContactType"] === 7
-                                ? "Policy Number"
-                                : "File Number"
-                            }
-                            value={cardInfo[index]["FileNumber"]}
-                            placeholder="File Number"
+                            name="AgentName"
+                            value={cardInfo[index]["FirstName"]}
+                            placeholder="Agent First Name"
                             onChangeText={(Text) => {
-                              handleCardChange(index, "FileNumber", Text);
+                              handleCardChange(index, "FirstName", Text);
                             }}
                           />
                         </View>
-                      )}
-                    </View>
+                        <View
+                          style={[styles["card-input"], styles["card-item"]]}
+                        >
+                          <InputField
+                            label="Agent Last Name"
+                            //autoFocus
+                            type="default"
+                            name="AgentName"
+                            value={cardInfo[index]["LastName"]}
+                            placeholder="Agent Last Name"
+                            onChangeText={(Text) => {
+                              handleCardChange(index, "LastName", Text);
+                            }}
+                          />
+                        </View>
+                        <View
+                          style={[styles["card-input"], styles["card-item"]]}
+                        >
+                          <InputField
+                            label="Agent Cell Phone"
+                            // autoFocus
+                            type="default"
+                            name=""
+                            value={cardInfo[index]["Phone"]}
+                            placeholder="Agent Cell Phone"
+                            onChangeText={(Text) => {
+                              handleCardChange(index, "Phone", Text);
+                            }}
+                            onBlur={(e) => {
+                              let number = FormatPhoneLogin(
+                                cardInfo[index]["Phone"]
+                              );
+                              handleCardChange(index, "Phone", number);
+                            }}
+                          />
+                        </View>
+                        <View
+                          style={[styles["card-input"], styles["card-item"]]}
+                        >
+                          <InputField
+                            label="Agent Email"
+                            //autoFocus
+                            type="default"
+                            name=""
+                            value={cardInfo[index]["AgentEmail"]}
+                            placeholder="Agent Email"
+                            onChangeText={(Text) => {
+                              handleCardChange(index, "AgentEmail", Text);
+                            }}
+                          />
+                        </View>
+                        {row["ContactType"] !== 7 ? (
+                          <View
+                            style={[styles["card-input"], styles["card-item"]]}
+                          >
+                            <InputField
+                              label="Agent License Number"
+                              // autoFocus
+                              type="default"
+                              name=""
+                              value={cardInfo[index]["AgentLicense"]}
+                              placeholder="Agent License Number"
+                              onChangeText={(Text) => {
+                                handleCardChange(index, "AgentLicense", Text);
+                              }}
+                              // style ={styles.InputField}
+                            />
+                          </View>
+                        ) : null}
+                      </View>
+                      <View
+                        style={{
+                          padding: 10,
+                          paddingTop: 0,
+                          flexDirection: "row",
+                        }}
+                      >
+                        <View
+                          style={[
+                            styles["card-input"],
+                            styles["card-item"],
+                            { width: "67%" },
+                          ]}
+                        >
+                          <InputField
+                            label="Company Street Address"
+                            //   autoFocus
+                            type="default"
+                            name="CompanyStreetAddr"
+                            value={cardInfo[index]["CompanyStreetAddr"]}
+                            placeholder="Company Street Address"
+                            onChangeText={(Text) => {
+                              handleCardChange(
+                                index,
+                                "CompanyStreetAddr",
+                                Text
+                              );
+                            }}
+                          />
+                        </View>
+
+                        <View
+                          style={[
+                            styles["card-input"],
+                            styles["card-item"],
+                            { width: "31%", marginLeft: 9 },
+                          ]}
+                        >
+                          <InputField
+                            label="Company Zip Code"
+                            //   autoFocus
+                            type="default"
+                            name="CompanyAddress"
+                            value={cardInfo[index]["CompanyZip"]}
+                            placeholder="Company Zip Code"
+                            onChangeText={(Text) => {
+                              handleCardChange(index, "CompanyZip", Text);
+                            }}
+                            onBlur={(e) => {
+                              fnAutoPopulateStateCity(
+                                cardInfo[index]["CompanyZip"],
+                                index
+                              );
+                            }}
+                          />
+                        </View>
+                      </View>
+                      <View style={[styles["card-body"], { paddingTop: 0 }]}>
+                        <View
+                          style={[styles["card-input"], styles["card-item"]]}
+                        >
+                          <InputField
+                            label="Company City"
+                            //   autoFocus
+                            type="default"
+                            name="CompanyAddress"
+                            value={cardInfo[index]["CompanyCity"] || ""}
+                            placeholder="Company City"
+                            onChangeText={(Text) => {
+                              handleCardChange(index, "CompanyCity", Text);
+                            }}
+                          />
+                        </View>
+
+                        <View
+                          style={[styles["card-input"], styles["card-item"]]}
+                        >
+                          <InputField
+                            label="Company State"
+                            //   autoFocus
+                            type="default"
+                            name="CompanyState"
+                            value={cardInfo[index]["CompanyState"] || ""}
+                            placeholder="Company State"
+                            onChangeText={(Text) => {
+                              handleCardChange(index, "CompanyState", Text);
+                            }}
+                          />
+                        </View>
+                      </View>
+                      {/* Phone */}
+                      <View
+                        style={[
+                          styles["card-body"],
+                          {
+                            paddingTop: 0,
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[styles["card-input"], styles["card-item"]]}
+                        >
+                          <InputField
+                            label="Company Phone"
+                            //autoFocus
+                            type="default"
+                            name=""
+                            value={cardInfo[index]["CompPhone"]}
+                            placeholder="Company Phone"
+                            onChangeText={(Text) => {
+                              handleCardChange(index, "CompPhone", Text);
+                            }}
+                            onBlur={(e) => {
+                              let number = FormatPhoneLogin(
+                                cardInfo[index]["CompPhone"]
+                              );
+                              handleCardChange(index, "CompPhone", number);
+                            }}
+                          />
+                        </View>
+                        <View
+                          style={[styles["card-input"], styles["card-item"]]}
+                        ></View>
+
+                        {cardInfo[index]["ContactType"] !== 7 ? (
+                          <>
+                            <View
+                              style={[
+                                styles["card-input"],
+                                styles["card-item"],
+                              ]}
+                            >
+                              <InputField
+                                label="Company License Number"
+                                // autoFocus
+                                type="default"
+                                name=""
+                                value={cardInfo[index]["CompanyLicense"]}
+                                placeholder="Company License Number"
+                                onChangeText={(Text) => {
+                                  handleCardChange(
+                                    index,
+                                    "CompanyLicense",
+                                    Text
+                                  );
+                                }}
+                              />
+                            </View>
+                            <View
+                              style={[
+                                styles["card-input"],
+                                styles["card-item"],
+                              ]}
+                            ></View>
+                          </>
+                        ) : null}
+                        {[7, 2, 4].includes(row["ContactType"]) && (
+                          <View
+                            style={[styles["card-input"], styles["card-item"]]}
+                          >
+                            <InputField
+                              label={
+                                row["ContactType"] === 7
+                                  ? "Policy Number"
+                                  : "File Number"
+                              }
+                              //autoFocus
+                              type="default"
+                              name={
+                                row["ContactType"] === 7
+                                  ? "Policy Number"
+                                  : "File Number"
+                              }
+                              value={cardInfo[index]["FileNumber"]}
+                              placeholder="File Number"
+                              onChangeText={(Text) => {
+                                handleCardChange(index, "FileNumber", Text);
+                              }}
+                            />
+                          </View>
+                        )}
+                      </View>
+                    </>
                   )}
                 </>
               )}
