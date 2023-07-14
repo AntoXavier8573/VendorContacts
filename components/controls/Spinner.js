@@ -10,7 +10,7 @@ const ArrowSpinner = () => {
     spinValue.setValue(0);
     Animated.timing(spinValue, {
       toValue: 1,
-      duration: 1000,
+      duration: 800,
       easing: Easing.linear,
       useNativeDriver: true,
     }).start(() => startSpinnerAnimation());

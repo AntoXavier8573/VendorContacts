@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   Keyboard,
   TextInput,
@@ -23,8 +23,31 @@ const InputBox = (props) => {
     validate,
     border,
     backgroundColor,
+    onBlur,
+    onFocus,
   } = props;
-
+  const [hoverStyle] = useState(
+    Platform.select({
+      ios: {
+        shadowColor: "rgba(0, 0, 0, 0.4)",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+      default: {
+        borderColor: "#66afe9",
+        outline: 0,
+        "-webkit-box-shadow":
+          "inset 0 1px 1px rgba(0,0,0,.075),0 0 8px rgba(102,175,233,.6)",
+        boxShadow:
+          "inset 0 1px 1px rgba(0,0,0,.075),0 0 8px rgba(102,175,233,.6)",
+      },
+    })
+  );
+  const [InputField, setInputField] = useState(false);
   const [fontsLoaded] = useFonts({
     OpenSansRegular: require("../../assets/fonts/OpenSans-Regular.ttf"),
   });
@@ -65,6 +88,7 @@ const InputBox = (props) => {
         onLayout={onLayoutRootView}
         style={[
           styles.inputBox,
+          InputField && hoverStyle,
           { fontFamily: "OpenSansRegular" },
           Platform.OS === "web" && { outline: "none" },
         ]}
@@ -76,6 +100,14 @@ const InputBox = (props) => {
         keyboardType={type || "default"}
         autoCapitalize={"none"}
         ref={ref || null}
+        onBlur={(e) => {
+          // onBlur();
+          setInputField(false);
+        }}
+        onFocus={() =>
+          //onFocus()
+          setInputField(true)
+        }
         {...props}
         // hoverStyle={{ borderWidth: 0, outlineWidth: 0 }}
         // activeStyle={{ borderWidth: 0, outlineWidth: 0 }}

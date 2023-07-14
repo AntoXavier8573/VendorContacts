@@ -38,25 +38,13 @@ export default function CustomText(props) {
   const [fontsLoaded] = useFonts(
     Platform.OS === "web"
       ? {
-          // HelveticaRegular: require("../../assets/fonts/Helvetica-Regular.otf"),
-
-          // HelveticaItalic: require("../../assets/fonts/Helvetica-Oblique.ttf"),
-
-          // HelveticaBold: require("../../assets/fonts/helvetica-rounded-bold-5871d05ead8de.otf"),
-
-          // HelveticaBoldItalic: require("../../assets/fonts/Helvetica-BoldOblique.ttf"),
-
           PlayFair: require("../../assets/fonts/Playfair_9pt_SemiCondensed-Regular.ttf"),
         }
       : {
           OpenSansRegular: require("../../assets/fonts/OpenSans-Regular.ttf"),
-
           OpenSansBold: require("../../assets/fonts/OpenSans-Bold.ttf"),
-
           OpenSansItalic: require("../../assets/fonts/OpenSans-Italic.ttf"),
-
           OpenBoldItalic: require("../../assets/fonts/OpenSans-BoldItalic.ttf"),
-
           PlayFair: require("../../assets/fonts/Playfair_9pt_SemiCondensed-Regular.ttf"),
         }
   );

@@ -1,20 +1,11 @@
 import { StatusBar } from "expo-status-bar";
-import {
-  StyleSheet,
-  Text,
-  View,
-  Platform,
-  TouchableOpacity,
-  Picker,
-} from "react-native";
+import { StyleSheet, View, Platform, TouchableOpacity } from "react-native";
 import { useEffect, useState } from "react";
 import {
-  handleWebPageOpen,
   handleParamFromURL,
   handleAPI,
 } from "./components/controls/CommonFunctions";
 import VendorContacts from "./components/VendorContacts";
-import DropdownInput from "./components/DropDown";
 import CustomText from "./components/controls/CustomText";
 import ScrollContainer from "./components/controls/ScrollContainer";
 
@@ -99,17 +90,6 @@ export default function App() {
                           styles.navRightOption,
                         ]}
                         onPress={(e) =>
-                          // handleWebPageOpen(
-                          //   row["VendorId"],
-                          //   Platform.OS === "web" &&
-                          //     handleParamFromURL(
-                          //       document.location.href,
-                          //       "SessionId"
-                          //     ),
-                          //   "http://www.solutioncenter.biz/BorrowerApplication/Presentation/Webforms/TitleFees.aspx?SessionId="
-                          //   //queryString["SessionId"]
-                          // )
-
                           window.open(
                             `../../../BorrowerApplication/Presentation/Webforms/TitleFees.aspx?SessionId=${handleParamFromURL(
                               document.location.href,
@@ -137,8 +117,6 @@ export default function App() {
         </View>
         <View style={styles.container}>
           <VendorContacts />
-
-          {/* <DropdownInput /> */}
         </View>
         <CustomText style={styles.pagefooter}>Page Bottom</CustomText>
       </View>
@@ -201,6 +179,7 @@ const styles = StyleSheet.create({
   },
   navBarRight: {
     flexDirection: "column",
+    display: "none",
   },
   navBarRightText: {
     fontSize: 18,
