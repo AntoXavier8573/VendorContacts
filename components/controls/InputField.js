@@ -161,17 +161,15 @@ const styles = StyleSheet.create({
   },
 
   inputBox: {
-    ...{
-      borderWidth: 0,
-      // outlineWidth: 0,
-      borderRadius: 5,
-      fontSize: Platform.OS === "web" ? 13 : 16,
-      backgroundColor: "rgba(0,0,0,.04)",
-      color: "#51575d",
-      width: "100%",
-      padding: 5,
-      height: 34,
-    },
+    borderWidth: 0,
+    // outlineWidth: 0,
+    borderRadius: 5,
+    fontSize: Platform.OS === "web" ? 13 : 16,
+    backgroundColor: "rgba(0,0,0,.04)",
+    color: "#51575d",
+    width: "100%",
+    padding: 5,
+    height: 34,
   },
 
   inputBoxLabel: {

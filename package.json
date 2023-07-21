@@ -30,7 +30,7 @@
     "@babel/core": "^7.20.0"
   },
   "private": true,
-  "configureWebpack":{
+  "configureWebpack": {
     "performance": {
       "hints": false
     },
@@ -40,5 +40,5 @@
         "maxSize": 250000
       }
     }
-}
+  }
 }
