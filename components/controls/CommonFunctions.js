@@ -35,14 +35,19 @@ const handleParamFromURL = (url, param) => {
   const value = params[index + 2];
   return value;
 };
-const handleWebPageOpen = (iVendorId, SessionId, url) => {
+const handleWebPageOpen = (RowData, SessionId, url,position) => {
+  const {VendorId,AgentID} = RowData
+  const {Height,Width,Left,Top} = JSON.parse(position)
+
   var sURL =
     url +
     SessionId +
     "&VendorId=" +
-    iVendorId +
+    VendorId +
+    "&AgentID=" +
+    AgentID +
     "&changeid=&changeaction=Edit&PageUse=Edit";
-  window.open(sURL, "", "height=800px,width=1200px,resizable=1,scrollbars=yes");
+  window.open(sURL, "", `height=${Height},width=${Width},top=${Top},left=${Left},resizable=1,scrollbars=yes`);
 };
 
 const FormatPhoneLogin = (PhoneNo) => {
