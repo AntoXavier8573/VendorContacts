@@ -1,11 +1,16 @@
 import { Platform } from "react-native";
 const handleAPI = async ({ name, params, method, signal }) => {
-  let protocol = Platform.OS === "web" ? "https" : "http";
+   let protocol = Platform.OS === "web" ? "https" : "http";
   params = Object.keys(params)
     .map((key) => `${key}=${params[key]}`)
     .join("&");
-  let URL = "";
-  URL = `${protocol}://www.solutioncenter.biz/VendorAPI/api/${name}?${params}`;
+
+  // let domain =
+  //     window.location.hostname === "localhost"
+  //       ? "https://www.solutioncenter.biz/"
+  //       : "../../../",
+    URL = `${protocol}://www.solutioncenter.biz/VendorAPI/api/${name}?${params}`;
+    //URL = `${domain}VendorAPI/api/${name}?${params}`;
 
   return fetch(URL, {
     method: method || "POST",
@@ -35,9 +40,9 @@ const handleParamFromURL = (url, param) => {
   const value = params[index + 2];
   return value;
 };
-const handleWebPageOpen = (RowData, SessionId, url,position) => {
-  const {VendorId,AgentID} = RowData
-  const {Height,Width,Left,Top} = JSON.parse(position)
+const handleWebPageOpen = (RowData, SessionId, url, position) => {
+  const { VendorId, AgentID } = RowData;
+  const { Height, Width, Left, Top } = JSON.parse(position);
 
   var sURL =
     url +
@@ -47,7 +52,11 @@ const handleWebPageOpen = (RowData, SessionId, url,position) => {
     "&AgentID=" +
     AgentID +
     "&changeid=&changeaction=Edit&PageUse=Edit";
-  window.open(sURL, "", `height=${Height},width=${Width},top=${Top},left=${Left},resizable=1,scrollbars=yes`);
+  window.open(
+    sURL,
+    "",
+    `height=${Height},width=${Width},top=${Top},left=${Left},resizable=1,scrollbars=yes`
+  );
 };
 
 const FormatPhoneLogin = (PhoneNo) => {

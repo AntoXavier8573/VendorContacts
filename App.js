@@ -39,7 +39,7 @@ export default function App() {
   return (
     <ScrollContainer>
       <View style={{ width: "100%" }}>
-        {handleParamFromURL(document.location.href, "DispHeader") == 1 && (
+        {Platform.OS === 'web' && handleParamFromURL(document.location.href, "DispHeader") == 1 && (
           <View style={{ zIndex: 11 }}>
             <CustomText style={styles.pageheader}>
               <View>

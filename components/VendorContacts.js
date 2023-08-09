@@ -52,6 +52,10 @@ export default function VendorContacts() {
     LoanId: "456760",
     SessionId: "",
     IsEditRights: 0,
+    Page:
+      Platform.OS === "web"
+        ? handleParamFromURL(document.location.href, "CurrentPage")
+        : "HazardInsurance",
   });
   const [copyAgent, setCopyAgent] = useState([]);
   const [AutoCinput, setInput] = useState({});
@@ -141,8 +145,10 @@ export default function VendorContacts() {
           const index = fnGetIndex(Object.keys(AutoCompdata)[0]);
           if (
             selectedItemIndex === 0 &&
-           // ![3, 52].includes(Object.keys(AutoCompdata)[0]) 
-            Object.keys(AutoCompdata)[0] !== 3 && Object.keys(AutoCompdata)[0] !== 52
+            // ![3, 52].includes(Object.keys(AutoCompdata)[0])
+            Object.keys(AutoCompdata)[0] != 3 && // Appraiser
+            Object.keys(AutoCompdata)[0] != 52 && // Notary
+            Object.keys(AutoCompdata)[0] != 56 // Condo PUD
           ) {
             handleAddNew(
               AutoCompdata[Object.keys(AutoCompdata)[0]][selectedItemIndex]
@@ -225,7 +231,7 @@ export default function VendorContacts() {
 
             return;
           } else {
-            GetVendoronload();
+            handlePageLoad();
             GetWareHouseList();
           }
         })
@@ -233,11 +239,16 @@ export default function VendorContacts() {
     }, []);
   } else {
     useEffect(() => {
-      GetVendoronload();
+      handlePageLoad();
       GetWareHouseList();
     }, []);
   }
 
+  const handlePageLoad = () => {
+    queryString["Page"] === "HazardInsurance"
+      ? GetHarardInsuranceload()
+      : GetVendoronload();
+  };
   // API for to load data fot Cards and Grids
   const GetVendoronload = () => {
     let qString = "",
@@ -278,7 +289,7 @@ export default function VendorContacts() {
 
         if (CardResult.length) {
           let CardData = CardResult;
-
+          console.log("Before filtering ==>", CardData);
           const hasSeller = CardData.filter((e) => e.ContactType == 0);
           if (Object.keys(hasSeller).length === 0)
             CardData.splice(1, 0, { ContactType: 0, IsEmpty: true, isCard: 1 });
@@ -295,9 +306,14 @@ export default function VendorContacts() {
 
           let uniqueRows = getUniqueObjectsByKey(CardData, "ContactTypename");
           console.log("Card info", uniqueRows);
-          setCardValidation(handleCardValidation(uniqueRows)); // to show the red border in the card
+          console.log("==========================================");
+          let cardHighlight = handleCardValidation(uniqueRows);
+          if (sellerData.length == 0) cardHighlight["0"] = true;
+          setCardValidation({ ...cardValidation, ...cardHighlight }); // to show the red border in the card
           setResult(uniqueRows);
+          // console.log('=================One==========');
           setCardInfo(uniqueRows);
+
           setCopyAgent({
             2: uniqueRows[2].isEscrowSame == 0 ? false : true, // Title for borrower
             48: uniqueRows[4].isEscrowSame == 0 ? false : true, // Title for seller
@@ -320,6 +336,7 @@ export default function VendorContacts() {
           const EmptyVendors = CardData.filter(
             (e) => e.AgentID === 0 && e.VendorId === 0
           );
+
           const EnableSearch = EmptyVendors.map((e) => e.ContactType).reduce(
             (map, number) => {
               map[number] = true;
@@ -327,21 +344,15 @@ export default function VendorContacts() {
             },
             {}
           );
-          const fieldValidation = uniqueRows.filter((e) => e.FileNumber == "");
+
+          //const fieldValidation = uniqueRows.filter((e) => e.FileNumber == "");
           setEditCompany(EnableSearch);
           setValidation(EnableSearch);
 
           // Need to work on for validation
-          setSaveValidation((prevState) => {
-            var updatedData = { ...prevState };
-            fieldValidation.forEach((e) => {
-              updatedData[e.ContactType] = {
-                FileNumber: true,
-              };
-            });
+          let fieldValidation = handleFieldValidation(uniqueRows);
 
-            return updatedData;
-          });
+          setSaveValidation(fieldValidation); // To have the field level validation
 
           // setSaveValidation({
           //   ...saveValidation,
@@ -354,6 +365,7 @@ export default function VendorContacts() {
         //Grid data binding
         if (GridData.length) {
           const NotaryRow = GridData.filter((e) => e["ContactType"] === 52);
+          const CondoPUDRow = GridData.filter((e) => e["ContactType"] === 56);
           console.log("Full grid row === >", GridData);
           const AppraiserRows = GridData.filter((e) => e["ContactType"] === 3);
           const NonBorroweRows = GridData.filter(
@@ -367,21 +379,173 @@ export default function VendorContacts() {
             ModifiedJson: OrderedObject,
             AppraiserRows: AppraiserRows,
             NonBorroweRows: NonBorroweRows,
-            IsShowAppraiserSearch: AppraiserRows[0]
-              ? AppraiserRows[0].AgentID == 0
-                ? true
-                : false
-              : true,
-            //IsShowNotarySearch: true,
-            IsShowNotarySearch: NotaryRow[0]
-              ? NotaryRow[0].AgentID == 0
-                ? true
-                : false
-              : true,
+            // IsShowAppraiserSearch: AppraiserRows[0]
+            //   ? AppraiserRows[0].AgentID == 0
+            //     ? true
+            //     : false
+            //   : true,
+            // IsShowNotarySearch: NotaryRow[0]
+            //   ? NotaryRow[0].AgentID == 0
+            //     ? true
+            //     : false
+            //   : true,
+            // IsShowCondoPUDSearch: CondoPUDRow[0]
+            //   ? CondoPUDRow[0].AgentID == 0
+            //     ? true
+            //     : false
+            //   : true,
           });
           console.log("Grid info", OrderedObject);
           //setGridResult(GridData);
         }
+      })
+      .catch((e) => console.log("Get API => ", e));
+    // setCardInfo(rows); // Testing purpose
+  };
+  const GetHarardInsuranceload = () => {
+    let qString = "",
+      sParams = "";
+    if (Platform.OS === "web") {
+      qString = window.location.search;
+      sParams = new URLSearchParams(qString);
+    }
+    {
+      Platform.OS === "web" &&
+        // To handle business validation
+        handleBusinessValidationMessage();
+    }
+
+    handleAPI({
+      name: "Get_VendorLoanInfo_Type",
+      params: {
+        LoanId:
+          Platform.OS === "web" ? sParams.get("LoanId") : queryString["LoanId"],
+        Type: "7",
+        Fullrows: 1,
+      },
+      method: "POST",
+    })
+      .then((response) => {
+        let Data = JSON.parse(response);
+        // //let Data = Rows;
+        // let sellerData = Data.filter((e) => e.ContactType === 0);
+        // if (sellerData.length == 1 && sellerData[0].AgentID == 0)
+        //   sellerData = [];
+        // setSellerInfo({ ...sellerInfo, RowData: sellerData });
+        // setSellerTabelProps({
+        //   ...sellerTabelProps,
+        //   ["ModifiedJson"]: sellerData,
+        // });
+
+        const CardResult = Data.filter((e) => e.isCard === 1);
+        //const GridData = Data.filter((e) => e.isCard !== 1);
+
+        if (CardResult.length) {
+          let CardData = CardResult;
+
+          // const hasSeller = CardData.filter((e) => e.ContactType == 0);
+          // if (Object.keys(hasSeller).length === 0)
+          //   CardData.splice(1, 0, { ContactType: 0, IsEmpty: true, isCard: 1 });
+
+          // const hasSellerEscrow = CardData.filter((e) => e.ContactType == 49);
+          // if (Object.keys(hasSellerEscrow).length === 0)
+          //   CardData.splice(5, 0, {
+          //     ContactType: 49,
+          //     IsEmpty: true,
+          //     isCard: 1,
+          //   });
+          // let hazardInsurance = GridData.filter((e) => e.ContactType === 17);
+          // CardData.push(hazardInsurance[0]);
+
+          let uniqueRows = getUniqueObjectsByKey(CardData, "ContactTypename");
+          console.log("Card info", uniqueRows);
+          let cardHighlight = handleCardValidation(uniqueRows);
+          //if (sellerData.length == 0) cardHighlight["0"] = true;
+          setCardValidation({ ...cardValidation, ...cardHighlight }); // to show the red border in the card
+          setResult(uniqueRows);
+          setCardInfo(uniqueRows);
+          // setCopyAgent({
+          //   2: uniqueRows[2].isEscrowSame == 0 ? false : true, // Title for borrower
+          //   48: uniqueRows[4].isEscrowSame == 0 ? false : true, // Title for seller
+          //   50:
+          //     uniqueRows[6].iNoRealtorReprestation == 1 &&
+          //     uniqueRows[6].AgentID == 0
+          //       ? true
+          //       : false, // Realtor for borrower
+          //   51:
+          //     uniqueRows[7].iNoRealtorReprestation == 1 &&
+          //     uniqueRows[7].AgentID == 0
+          //       ? true
+          //       : false, // Realtor for seller
+          //   43:
+          //     uniqueRows[uniqueRows.length - 1].iNoRealtorReprestation == 1 &&
+          //     uniqueRows[uniqueRows.length - 1].AgentID == 0
+          //       ? true
+          //       : false, // Realtor for seller
+          // });
+          const EmptyVendors = CardData.filter(
+            (e) => e.AgentID === 0 && e.VendorId === 0
+          );
+          const EnableSearch = EmptyVendors.map((e) => e.ContactType).reduce(
+            (map, number) => {
+              map[number] = true;
+              return map;
+            },
+            {}
+          );
+          //const fieldValidation = uniqueRows.filter((e) => e.FileNumber == "");
+          setEditCompany(EnableSearch);
+          setValidation(EnableSearch);
+
+          // Need to work on for validation
+          let fieldValidation = handleFieldValidation(uniqueRows);
+
+          setSaveValidation(fieldValidation); // To have the field level validation
+
+          // setSaveValidation({
+          //   ...saveValidation,
+          //   [ContactType]: {
+          //     ...saveValidation[ContactType],
+          //     [name]: true,
+          //   },
+          // });
+        }
+        //Grid data binding
+        // if (GridData.length) {
+        //   const NotaryRow = GridData.filter((e) => e["ContactType"] === 52);
+        //   const CondoPUDRow = GridData.filter((e) => e["ContactType"] === 56);
+        //   console.log("Full grid row === >", GridData);
+        //   const AppraiserRows = GridData.filter((e) => e["ContactType"] === 3);
+        //   const NonBorroweRows = GridData.filter(
+        //     (e) => e["ContactType"] === 999
+        //   );
+        //   const OrderedObject = fnChangeArrOfObjectOrder(GridData);
+
+        //   setTableProps({
+        //     ...tabelProps,
+        //     tableData: OrderedObject,
+        //     ModifiedJson: OrderedObject,
+        //     AppraiserRows: AppraiserRows,
+        //     NonBorroweRows: NonBorroweRows,
+        //     // IsShowAppraiserSearch: AppraiserRows[0]
+        //     //   ? AppraiserRows[0].AgentID == 0
+        //     //     ? true
+        //     //     : false
+        //     //   : true,
+        //     // IsShowNotarySearch: NotaryRow[0]
+        //     //   ? NotaryRow[0].AgentID == 0
+        //     //     ? true
+        //     //     : false
+        //     //   : true,
+        //     // IsShowCondoPUDSearch: CondoPUDRow[0]
+        //     //   ? CondoPUDRow[0].AgentID == 0
+        //     //     ? true
+        //     //     : false
+        //     //   : true,
+        //   });
+        //   console.log("Grid info", OrderedObject);
+        //   //setGridResult(GridData);
+        // }
       })
       .catch((e) => console.log("Get API => ", e));
     // setCardInfo(rows); // Testing purpose
@@ -402,17 +566,21 @@ export default function VendorContacts() {
   // To focus the input when scroll up/down
   const fnFocusInput = (e) => {
     if (e.key === "ArrowDown") {
-      setSelectedItemIndex(0);
-      setTimeout(() => {
-        if (btnAddNewRef.current) {
-          btnAddNewRef.current[0].focus(); //This fixes the Scroll happening from bottom to add new
-        }
-      }, 0);
-      flatListRef.current.scrollToItem({
-        animated: true,
-        item: AutoCompdata[Object.keys(AutoCompdata)[0]][selectedItemIndex + 1],
-        viewPosition: 0.5,
-      });
+      if (AutoCompdata[Object.keys(AutoCompdata)[0]].length > 1) {
+        setSelectedItemIndex(0);
+        setTimeout(() => {
+          if (btnAddNewRef.current) {
+            btnAddNewRef.current[0].focus(); //This fixes the Scroll happening from bottom to add new
+          }
+        }, 0);
+        flatListRef.current.scrollToItem({
+          animated: true,
+          item: AutoCompdata[Object.keys(AutoCompdata)[0]][
+            selectedItemIndex + 1
+          ],
+          viewPosition: 0.5,
+        });
+      }
     }
   };
   //Carries all the fields from the card
@@ -440,38 +608,20 @@ export default function VendorContacts() {
 
     // let modifiedJson = { ...(obj || []), [name]: value };
     // setJsonModified(modifiedJson);
-    if (name === "FileNumber") {
-      if (value.trim().length === 0) {
-        setSaveValidation({
-          ...saveValidation,
-          [ContactType]: {
-            ...saveValidation[ContactType],
-            [name]: true,
-          },
-        });
-        // if (window.parent != window) {
-        //   let obj = { ContactType: ContactType, [name]: value };
-        //   FileNumberJson = FileNumberJson.filter(
-        //     (e) => e.ContactType !== ContactType
-        //   );
-        //   FileNumberJson.push(obj);
-        //   // window.parent.AppraisalSavedXml = FileNumberJson;
-        // handleParentWindow("Disable");
-        //window.parent.VendorSaveJson = FileNumberJson;
-        //}
-      } else {
-        // if (window.parent != window) {
-        //   let obj = { ContactType: ContactType, [name]: value };
-        //   FileNumberJson = FileNumberJson.filter(
-        //     (e) => e.ContactType !== ContactType
-        //   );
-        //   FileNumberJson.push(obj);
-        // window.parent.AppraisalSavedXml = FileNumberJson;
-        // handleParentWindow("Enable");
-        // window.parent.VendorSaveJson = FileNumberJson;
-        // }
+    //  if (name === "FileNumber") {
+    if (value.trim().length === 0) {
+      if ([48, 49].includes(ContactType) && name === "FileNumber") {
+        return;
       }
+      setSaveValidation({
+        ...saveValidation,
+        [ContactType]: {
+          ...saveValidation[ContactType],
+          [name]: value.trim().length === 0 ? true : fasle,
+        },
+      });
     }
+    // }
     //   setOtherProps({
     //     ...otherProps,
     //     [`textSelection-${index}`]: true,
@@ -507,39 +657,40 @@ export default function VendorContacts() {
       .catch((e) => console.log("While auto populate  => ", e));
   };
   //Inditual card save
-  const handleVedorSave = (index, TypeName) => {
+  const handleVendorSave = (index, TypeName) => {
     console.log("vendor card info ==>", cardInfo[index]);
     //For validation
     let mandatoryFields = [];
     let finalJson = [];
     let isBlockSave = false;
     if (TypeName !== "Seller") {
-      mandatoryFields = [
-        "Companyname",
-        "FirstName",
-        "LastName",
-        "AgentEmail",
-        "CompPhone",
-        "Phone",
-        "FileNumber",
-      ];
+      // mandatoryFields = [
+      //   "Companyname",
+      //   "FirstName",
+      //   "LastName",
+      //   "AgentEmail",
+      //   "CompPhone",
+      //   "Phone",
+      //   "FileNumber",
+      // ];
 
       const { ContactType } = cardInfo[index];
-      setSaveValidation((PrevObj) => {
-        const updateObj = { ...(PrevObj || {}) };
-        updateObj[ContactType] = {};
+      // setSaveValidation((PrevObj) => {
+      //   const updateObj = { ...(PrevObj || {}) };
+      //   updateObj[ContactType] = {};
 
-        mandatoryFields.forEach((key) => {
-          if (!cardInfo[index][key]) {
-            updateObj[ContactType][key] = true;
-            if (key === "Companyname") isBlockSave = true;
-          }
-        });
-        return updateObj;
-      });
+      //   mandatoryFields.forEach((key) => {
+      //     if (!cardInfo[index][key]) {
+      //       updateObj[ContactType][key] = true;
+      //       if (key === "Companyname") isBlockSave = true;
+      //     }
+      //   });
+      //   return updateObj;
+      // });
       finalJson = cardInfo.filter((e, i) => i == index);
+      let fieldValidation = handleFieldValidation(finalJson);
+      setSaveValidation({ ...saveValidation, ...fieldValidation });
       let cardHighlight = handleCardValidation(finalJson);
-      console.log("validation == >", cardHighlight);
       setCardValidation({ ...cardValidation, ...cardHighlight });
     } else {
       finalJson = sellerTabelProps["ModifiedJson"].filter((e, i) => i == index);
@@ -584,7 +735,7 @@ export default function VendorContacts() {
           ["ContactTypename"]: finalJson[0].ContactTypename,
           ["Loanid"]: finalJson[0].Loanid,
           ["Phone"]: finalJson[0].Phone,
-          ["VendorId"]: finalJson[0].state,
+          ["VendorId"]: finalJson[0].VendorId,
           ["FirstName"]: finalJson[0].FirstName,
           ["Nickname"]: finalJson[0].Nickname,
           ["LastName"]: finalJson[0].LastName,
@@ -615,7 +766,7 @@ export default function VendorContacts() {
             ["Companyname"]: finalJson[0].Companyname,
             ["Loanid"]: finalJson[0].Loanid,
             ["Phone"]: finalJson[0].Phone,
-            ["VendorId"]: finalJson[0].state,
+            ["VendorId"]: finalJson[0].VendorId,
             ["FirstName"]: finalJson[0].FirstName,
             ["Nickname"]: finalJson[0].Nickname,
             ["LastName"]: finalJson[0].LastName,
@@ -650,7 +801,7 @@ export default function VendorContacts() {
             ["Companyname"]: finalJson[0].Companyname,
             ["Loanid"]: finalJson[0].Loanid,
             ["Phone"]: finalJson[0].Phone,
-            ["VendorId"]: finalJson[0].state,
+            ["VendorId"]: finalJson[0].VendorId,
             ["FirstName"]: finalJson[0].FirstName,
             ["Nickname"]: finalJson[0].Nickname,
             ["LastName"]: finalJson[0].LastName,
@@ -678,7 +829,7 @@ export default function VendorContacts() {
     console.log("Individual save initiated");
     let JsonData = JSON.stringify(finalJson).replaceAll("#", "|H|");
     handleAPI({
-      name: "Save_VendorLoanInfo",
+      name: "Save_VendorLoanInfo_API", //"Save_VendorLoanInfo",
       params: {
         SessionID: handleParamFromURL(document.location.href, "SessionId"),
         SaveJson: JsonData,
@@ -686,35 +837,69 @@ export default function VendorContacts() {
       method: "POST",
     })
       .then((response) => {
-        if (response === "Completed") {
+        const { SaveStatus, AgentId, VendorId } = JSON.parse(response)[0];
+        console.log("Add new ==>", response);
+        if (SaveStatus == "Completed") {
           // This part is moved to before the API request for peform
           // To handle business validation
-          handleBusinessValidationMessage();
-
-          console.log("Individual save Completed");
-          console.log("------------------------------------");
+          // console.log('SaveStatus ==> ', SaveStatus)
+          if (finalJson[0]["IsNew"] === 1) {
+            setResult((PrevObj) => {
+              const updateObj = [...PrevObj];
+              updateObj[index] = {
+                ...PrevObj[index],
+                ["VendorId"]: VendorId,
+                ["AgentID"]: AgentId,
+              };
+              return updateObj;
+            });
+            setCardInfo((PrevObj) => {
+              const updateObj = [...PrevObj];
+              updateObj[index] = {
+                ...PrevObj[index],
+                ["VendorId"]: VendorId,
+                ["AgentID"]: AgentId,
+              };
+              return updateObj;
+            });
+            // setTimeout(() => {
+            //   handleGetVendorByType(finalJson[0]["ContactType"]);
+            // }, 1500);
+          }
         }
+        // handleGetVendorByType(finalJson[0]["ContactType"]);
+        handleBusinessValidationMessage();
+
+        console.log("Individual save Completed");
+        console.log("------------------------------------");
+        //}
       })
       .catch((e) => console.log("Error While saving vendor details => ", e));
   };
   //Modal open/close
   const toggleModal = (Type) => {
     setModalVisible({ isModalVisible, [Type]: !isModalVisible[Type] });
+    setData({});
+    setInput({});
   };
   //To filter/order the objects for the grids
   const getUniqueObjectsByKey = (objects, key) => {
-    const uniqueValues = new Set();
-    const uniqueObjects = [];
+    try {
+      const uniqueValues = new Set();
+      const uniqueObjects = [];
 
-    objects.forEach((obj) => {
-      const value = obj[key];
-      if (!uniqueValues.has(value)) {
-        uniqueValues.add(value);
-        uniqueObjects.push(obj);
-      }
-    });
+      objects.forEach((obj) => {
+        const value = obj[key];
+        if (!uniqueValues.has(value)) {
+          uniqueValues.add(value);
+          uniqueObjects.push(obj);
+        }
+      });
 
-    return uniqueObjects;
+      return uniqueObjects;
+    } catch (error) {
+      console.log("Error while filtering in  onload...");
+    }
   };
   //Print function for hazard insurance/title for (selle and borrower)
   const fnPrintVendor = (Type) => {
@@ -788,7 +973,10 @@ export default function VendorContacts() {
           });
           //setSelectedItemIndex(0);
           let NoRow = [];
-          if (result.length === 1) {
+          if (
+            ([3, 52, 56].includes(type) && result.length === 0) ||
+            result.length === 1
+          ) {
             NoRow = [
               {
                 id: "-1",
@@ -861,7 +1049,7 @@ export default function VendorContacts() {
         strSessionId: handleParamFromURL(document.location.href, "SessionId"),
         SerCatId: event.ActualType,
         iLoanId: handleParamFromURL(document.location.href, "LoanId"),
-        isTitleEscSame: IsSame,
+        isTitleEscSame: 0, //IsSame,
       },
       method: "POST",
     })
@@ -880,7 +1068,7 @@ export default function VendorContacts() {
         if ([43, 4, 49].includes(ContactType)) {
           setCopyAgent({
             ...copyAgent,
-            [Type ? Type : ContactType]: false,
+            [Type ? Type : ContactType]: IsSame === 1 ? true : false,
           });
         } else {
           setCopyAgent({
@@ -894,30 +1082,24 @@ export default function VendorContacts() {
         });
         // let ContactType = event.ActualType == 2 ? 4 : 49;
         // let Index = event.ActualType == 2 ? 3 : 5;
-        if ([3, 52].includes(ContactType)) {
+        if ([3, 52, 56].includes(ContactType)) {
           const Index_ = fnGetIndex(ContactType, "Grid");
-          if(ContactType == 3) {
-
+          if (ContactType == 3) {
             setTableProps((PrevObj) => {
-              const updateObj = [...PrevObj.AppraiserRows];
-              //updateObj[Index_] = finalJson[0];
-  
               return {
                 ...PrevObj,
-                // ["selectWareHouse"]: item.value,
-                // ["showWareHouseOption"]: false,
                 AppraiserRows: finalJson,
               };
             });
-          }
-          else{
+          } else {
             setTableProps((prevState) => {
               const modifiedJson = [...prevState.tableData];
-              modifiedJson[Index_] = finalJson[0]
+              modifiedJson[Index_] = finalJson[0];
               return {
                 ...prevState,
                 tableData: modifiedJson,
-                IsShowNotarySearch:false
+                IsShowNotarySearch: false,
+                IsShowCondoPUDSearch: false,
               };
             });
           }
@@ -991,12 +1173,19 @@ export default function VendorContacts() {
             return updateObj;
           });
         }
+        let cardHighlight = handleCardValidation(finalJson);
+        setCardValidation({ ...cardValidation, ...cardHighlight });
         setValidation({ ...validation, [finalJson[0].ContactType]: false });
-
+        let fieldValidation = handleFieldValidation(finalJson);
+        console.log("Field validation ===>", fieldValidation);
+        setSaveValidation({ ...saveValidation, ...fieldValidation }); // To have the field level validation
         // To handle business validation
         handleBusinessValidationMessage();
       })
-      .catch((e) => console.log("Error in Company selection method => ", e));
+      .catch((e) => {
+        handleBusinessValidationMessage();
+        console.log("Error in Company selection method => ", e);
+      });
   };
   //Seller selection
   const handleSellerSelection = (event) => {
@@ -1019,10 +1208,17 @@ export default function VendorContacts() {
           ...sellerTabelProps,
           ["ModifiedJson"]: Response,
         });
+        setCardValidation({ ...cardValidation, 0: false });
         setData({});
         setInput({});
+        // To handle business validation
+        handleBusinessValidationMessage();
       })
-      .catch((e) => console.log("Error in Seller selection method => ", e));
+      .catch((e) => {
+        // To handle business validation
+        handleBusinessValidationMessage();
+        console.log("Error in Seller selection method => ", e);
+      });
   };
   //Handles the changed values from the grid for seller/grid
   const handleGridChange = (index, name, value, Category, Type) => {
@@ -1116,7 +1312,8 @@ export default function VendorContacts() {
         ...editCompany,
         [ContactType]: !event,
       });
-      setValidation({ ...validation, [ContactType]: !event });
+
+      setValidation({ ...validation, [ContactType]: !event }); // for searching field 'X' mark
       if (event) {
         //Card view portion
         setResult((PrevObj) => {
@@ -1127,7 +1324,12 @@ export default function VendorContacts() {
             ["ContactType"]: ContactType,
             ["ContactTypename"]: result[Index].ContactTypename,
             ["isCard"]: 1,
-            // ["isEscrowSame"]: 1,
+            ["isEscrowSame"]: 1,
+            ["FileNumber"]: "",
+          };
+          updateObj[index] = {
+            ...updateObj[index],
+            ["isEscrowSame"]: 1,
           };
           return updateObj;
         });
@@ -1140,7 +1342,12 @@ export default function VendorContacts() {
             ["ContactType"]: ContactType,
             ["ContactTypename"]: result[Index].ContactTypename,
             ["isCard"]: 1,
-            // ["isEscrowSame"]: 1,
+            ["isEscrowSame"]: 1,
+            ["FileNumber"]: "",
+          };
+          updateObj[index] = {
+            ...updateObj[index],
+            ["isEscrowSame"]: 1,
           };
           return updateObj;
         });
@@ -1151,6 +1358,7 @@ export default function VendorContacts() {
           isTitleEscSame: 1,
         };
         handleCompanySelection(params, Index, 1);
+        setCardValidation({ ...cardValidation, [ContactType]: false });
       } else {
         //Card view portion
         setResult((PrevObj) => {
@@ -1160,7 +1368,11 @@ export default function VendorContacts() {
             ["ContactTypename"]: result[Index].ContactTypename,
             ["ContactSourceType"]: "V",
             ["isCard"]: 1,
-            // ["isEscrowSame"]: 0,
+            ["isEscrowSame"]: 0,
+          };
+          updateObj[index] = {
+            ...updateObj[index],
+            ["isEscrowSame"]: 0,
           };
           return updateObj;
         });
@@ -1173,7 +1385,11 @@ export default function VendorContacts() {
             ["ContactTypename"]: result[Index].ContactTypename,
             ["ContactSourceType"]: "V",
             ["isCard"]: 1,
-            // ["isEscrowSame"]: 0,
+            ["isEscrowSame"]: 0,
+          };
+          updateObj[index] = {
+            ...updateObj[index],
+            ["isEscrowSame"]: 0,
           };
           return updateObj;
         });
@@ -1181,10 +1397,6 @@ export default function VendorContacts() {
         handleRemoveSellerOrAgent(result[Index]);
       }
     } else if (Agent === "Realtor" || Agent === "DoesNotApply") {
-      setCopyAgent({
-        ...copyAgent,
-        [Type]: event,
-      });
       if (event) {
         //Card view portion
         setResult((PrevObj) => {
@@ -1213,6 +1425,13 @@ export default function VendorContacts() {
         });
 
         handleRemoveSellerOrAgent(result[index]);
+      } else {
+        setCopyAgent({
+          ...copyAgent,
+          [Type]: event,
+        });
+        // To handle business validation
+        handleBusinessValidationMessage();
       }
 
       handleAPI({
@@ -1225,6 +1444,8 @@ export default function VendorContacts() {
         method: "POST",
       })
         .then((response) => {
+          // To handle business validation
+          handleBusinessValidationMessage();
           console.log("No Realtor Saved..");
         })
         .catch((e) =>
@@ -1236,22 +1457,33 @@ export default function VendorContacts() {
       //   [Type]: event,
       // });
     }
+    setEditCard({
+      ...editCard,
+      [Type]: false,
+    });
   };
   //TO remove company or seller
-  const handleRemoveSellerOrAgent = (Data) => {
+  const handleRemoveSellerOrAgent = (Data, value) => {
     console.log("remove info", Data);
     if (Data.ContactSourceType === "S") {
       let Result = [];
-      if (Data.AgentID == 0)
-        Result = sellerInfo.RowData.filter((e) => {
-          return e.tempAgentID !== Data.tempAgentID;
-        });
-      else
-        Result = sellerInfo.RowData.filter((e) => {
-          return e.AgentID !== Data.AgentID;
-        });
+      // if (Data.AgentID == 0)
+      //   Result = sellerInfo.RowData.filter((e) => {
+      //     return e.tempAgentID !== Data.tempAgentID;
+      //   });
+      // else
+      //   Result = sellerInfo.RowData.filter((e) => {
+      //     return e.AgentID !== Data.AgentID;
+      //   });
+      Result = sellerInfo.RowData.filter((e, i) => {
+        return i != value;
+      });
       setSellerInfo({ ...sellerInfo, RowData: Result });
+      setSellerTabelProps({ ...sellerTabelProps, ModifiedJson: Result });
+      if (Result.length === 0)
+        setCardValidation({ ...cardValidation, ["0"]: true });
     } else {
+      let Index = fnGetIndex(Data.ContactType, "Grid");
       if (Data.ContactType == 3) {
         let Result = tabelProps["AppraiserRows"].filter(
           (e) => e["AgentID"] !== Data["AgentID"]
@@ -1259,18 +1491,70 @@ export default function VendorContacts() {
         let showSearch = false;
         if (Result.length == 0) {
           Result = [
-            { ContactType: 3, ContactTypename: "Appraiser", IsButton: false },
+            {
+              AgentID: -1,
+              ContactType: 3,
+              ContactTypename: "Appraiser",
+              IsButton: true,
+            },
           ];
-          showSearch = true;
+          //showSearch = true;
         }
         setTableProps({
           ...tabelProps,
           AppraiserRows: Result,
           IsShowAppraiserSearch: showSearch,
         });
+      } else if (Data.ContactType == 52 || Data.ContactType == 56) {
+        setTableProps((prevState) => {
+          const modifiedJson = [...prevState.tableData];
+          modifiedJson[Index] = {
+            // ...modifiedJson[Index],
+            ["AgentID"]: 0,
+            ["ContactType"]: Data.ContactType,
+            ["ContactTypename"]: Data.ContactTypename,
+            ["DisplaySeller"]: Data.DisplaySeller,
+          };
+          return {
+            ...prevState,
+            tableData: modifiedJson,
+          };
+        });
+
+        // setTableProps({
+        //   ...tabelProps,
+        //   IsShowNotarySearch: true,
+        // });
+        // } else if (Data.ContactType == 56) {
+        //   setTableProps((prevState) => {
+        //     const modifiedJson = [...prevState.tableData];
+        //     modifiedJson[Index] = {
+        //      // ...modifiedJson[Index],
+        //       ['AgentID']: 0,
+        //       ['ContactType']:Data.ContactType,
+        //       ['ContactTypename']:Data.ContactTypename
+        //     };
+        //     return {
+        //       ...prevState,
+        //       tableData: modifiedJson,
+        //     };
+        //   });
       } else {
         setModalVisible({ isModalVisible, Remove: false });
         const index = fnGetIndex(Data.ContactType);
+
+        let ContactType =
+          Data.ContactType == 4
+            ? 2
+            : Data.ContactType == 49
+            ? 48
+            : Data.ContactType;
+        let Index_ =
+          Data.ContactType == 4 ? 2 : Data.ContactType == 49 ? 4 : index;
+        setCopyAgent({
+          ...copyAgent,
+          [ContactType]: [43, 50, 51].includes(ContactType) ? true : false,
+        });
         setResult((PrevObj) => {
           const updateObj = [...PrevObj];
           updateObj[index] = {
@@ -1280,7 +1564,14 @@ export default function VendorContacts() {
             ["VendorId"]: Data.VendorId,
             ["ContactSourceType"]: "V",
             ["isCard"]: 1,
+            ["isEscrowSame"]: 0,
           };
+          if (ContactType == 4 || ContactType == 49) {
+            updateObj[Index_] = {
+              ...[PrevObj][index],
+              ["isEscrowSame"]: 0,
+            };
+          }
           return updateObj;
         });
 
@@ -1294,18 +1585,24 @@ export default function VendorContacts() {
             ["isCard"]: 1,
             ["isEscrowSame"]: 0,
           };
+          if (ContactType == 4 || ContactType == 49) {
+            updateObj[Index_] = {
+              ...[PrevObj][index],
+              ["isEscrowSame"]: 0,
+            };
+          }
           return updateObj;
         });
         setEditCompany({
           ...editCompany,
           [Data.ContactType]: true,
         });
-
-        setValidation({ ...validation, [Data.ContactType]: true });
+        //let cardHighlight = handleCardValidation(finalJson);
+        setCardValidation({ ...cardValidation, [Data.ContactType]: true });
+        //setValidation({ ...validation, [Data.ContactType]: true }); // Need to check
       }
     }
-    // To handle business validation
-    handleBusinessValidationMessage();
+
     handleAPI({
       name: "RemovefrmLoan",
       params: {
@@ -1319,6 +1616,8 @@ export default function VendorContacts() {
     })
       .then((response) => {
         //This part has moved to before the API request
+        // To handle business validation
+        handleBusinessValidationMessage();
       })
       .catch((e) =>
         console.log("Error in handleRemoveSellerOrAgent method => ", e)
@@ -1326,20 +1625,6 @@ export default function VendorContacts() {
   };
   // To ge the index based on the given ContactType
   const fnGetIndex = (value, Type) => {
-    // const valueToIndex = {
-    //   7: 0,
-    //   0: 1,
-    //   2: 2,
-    //   4: 3,
-    //   48: 4,
-    //   49: 5,
-    //   50: 6,
-    //   51: 7,
-    //   17: 8,
-    //   43: cardInfo.length - 1,
-    // };
-
-    // return valueToIndex[value] !== undefined ? valueToIndex[value] : -1;
     if (Type === "Grid")
       return tabelProps["tableData"].findIndex(
         (item) => item.ContactType == value
@@ -1360,7 +1645,7 @@ export default function VendorContacts() {
   };
   //To handle the add new option from the typeahead option
   const handleAddNew = (item) => {
-    if (item.ActualType == 3 || item.ActualType == 52 ) return;
+    if (item.ActualType == 3 || item.ActualType == 52) return;
     if (item.ValType == "S") {
       setModalVisible({ Seller: true });
       let SellerLength = sellerInfo["RowData"].length;
@@ -1418,6 +1703,7 @@ export default function VendorContacts() {
         updateObj[index] = {
           ["ContactType"]: item.ActualType,
           ["ContactTypename"]: result[index].ContactTypename,
+          ["Loanid"]: handleParamFromURL(document.location.href, "LoanId"),
           ["isCard"]: 1,
           ["Companyname"]: "",
           ["FirstName"]: "",
@@ -1426,6 +1712,7 @@ export default function VendorContacts() {
           ["CompPhone"]: "",
           ["Phone"]: "",
           ["IsNew"]: 1,
+          ["IsModified"]: 1,
           [item.SearchedFor]: AutoCinput[item.ActualType] || "", // To have the searched value by default to which you searched for
         };
         return updateObj;
@@ -1483,8 +1770,6 @@ export default function VendorContacts() {
     // Iterate over predefined values and add matching objects to the modified array
     predefinedValues.forEach((value) => {
       const matchingObject = row.find((obj) => obj.ContactType === value);
-      //if(value === 999 && matchingObject === undefined)
-      //matchingObject = [{'ContactType':999,'ContactTypename':'Non-Borrower'} ]
       if (matchingObject) {
         modifiedArray.push(matchingObject);
       }
@@ -1496,7 +1781,14 @@ export default function VendorContacts() {
     //     modifiedArray.push(obj);
     //   }
     // });
-    return modifiedArray;
+    return modifiedArray.sort((a, b) => {
+      const nameA = a.ContactTypename.toUpperCase();
+      const nameB = b.ContactTypename.toUpperCase();
+
+      if (nameA < nameB) return -1; // nameA comes after nameB ascending order)
+      if (nameA > nameB) return 1; // nameA comes before nameB ascending order)
+      return 0; // names are equal
+    });
   };
   const handleCardCancel = (row, index) => {
     setEditCard({
@@ -1560,7 +1852,7 @@ export default function VendorContacts() {
       .then((response) => {
         if (response === "Completed") {
           // This part is moved to before the API request for peform
-          GetVendoronload();
+          handlePageLoad();
           parentElLoader.style.display = "none";
         }
       })
@@ -1579,6 +1871,7 @@ export default function VendorContacts() {
         handleParamFromURL(document.location.href, "SessionId"),
         "Vendors"
       );
+      console.log("Triggered Business validation");
     }
   };
   const fnShowAddNew = (Type, action, event) => {
@@ -1646,8 +1939,14 @@ export default function VendorContacts() {
   };
 
   const handleRemoveAppraiser = (rowData, index) => {
-    const { ContactType, AgentID } = rowData;
-    let params = { ContactType, ContactSourceType: "V", AgentID };
+    const { ContactType, AgentID, ContactTypename, DisplaySeller } = rowData;
+    let params = {
+      ContactType,
+      ContactSourceType: "V",
+      AgentID,
+      ContactTypename,
+      DisplaySeller,
+    };
     handleRemoveSellerOrAgent(params);
   };
   const handleGridButton = (rowData, action, index) => {
@@ -1662,11 +1961,16 @@ export default function VendorContacts() {
         IsNew: 1,
       },
     ];
-    if (ContactType === 3) {
+    if ([3, 52, 56].includes(ContactType)) {
+      let obj = {};
       setfocusCompany({ ...focusCompany, [ContactType]: true });
+      if (ContactType === 3) obj = { IsShowAppraiserSearch: true };
+      else if (ContactType === 52) obj = { IsShowNotarySearch: true };
+      else obj = { IsShowCondoPUDSearch: true };
+
       setTableProps({
         ...tabelProps,
-        IsShowAppraiserSearch: true,
+        ...obj,
       });
     } else if (ContactType === 999) {
       if (action === "Remove") {
@@ -1705,13 +2009,68 @@ export default function VendorContacts() {
     }
   };
   const handleCardValidation = (data) => {
+    try {
+      let obj = {};
+      data.forEach((item) => {
+        let isEmpty = false;
+        if (item["ContactType"] != 0) {
+          let Keys = [
+            "FirstName",
+            //  "CompEmail",
+            "CompPhone",
+            "Phone",
+            "CompanyCity",
+            "CompanyZip",
+            "CompanyState",
+            "CompanyStreetAddr",
+            "Companyname",
+            "AgentEmail",
+            //"AgentLicense",
+            //"CompanyLicense",
+          ];
+          if ([7, 2, 4, 17].includes(item["ContactType"])) {
+            // 48,49 removed since these two not mandatory
+            Keys.push("FileNumber");
+          }
+          if (item["ContactType"] !== 7) {
+            Keys.push("AgentLicense");
+            Keys.push("CompanyLicense");
+          }
+          Keys.forEach((key) => {
+            if (
+              item[key] === null ||
+              item[key] === undefined ||
+              item[key] === ""
+            ) {
+              isEmpty = true;
+              return; // Break out of the forEach loop early if any key has an empty value
+            }
+          });
+
+          if (isEmpty) {
+            obj[item["ContactType"]] = true;
+          } else {
+            obj[item["ContactType"]] = false;
+          }
+          // if (item["isEscrowSame"] == 1) {
+          //   let ContactType = item["ContactType"] == 2 ? 4 : 49;
+          //   obj[ContactType] = obj[item["ContactType"]];
+          // }
+        }
+      });
+      return obj;
+    } catch (error) {
+      console.log("Error in handleCardValidation");
+    }
+  };
+  const handleFieldValidation = (data) => {
     let obj = {};
+    let updatedData = {};
     data.forEach((item) => {
-      let isEmpty = false;
       if (item["ContactType"] != 0) {
         let Keys = [
           "FirstName",
-          //  "CompEmail",
+          "LastName",
           "CompPhone",
           "Phone",
           "CompanyCity",
@@ -1719,15 +2078,20 @@ export default function VendorContacts() {
           "CompanyState",
           "CompanyStreetAddr",
           "Companyname",
+          "AgentEmail",
           //"AgentLicense",
           //"CompanyLicense",
         ];
-        if ([7, 2, 4, 17, 48, 49].includes(item["ContactType"])) {
+        if ([7, 2, 4, 17].includes(item["ContactType"])) {
+          // 48, 49
           Keys.push("FileNumber");
         }
         if (item["ContactType"] !== 7) {
           Keys.push("AgentLicense");
           Keys.push("CompanyLicense");
+        }
+        if (!updatedData[item["ContactType"]]) {
+          updatedData[item["ContactType"]] = {};
         }
         Keys.forEach((key) => {
           if (
@@ -1735,23 +2099,15 @@ export default function VendorContacts() {
             item[key] === undefined ||
             item[key] === ""
           ) {
-            isEmpty = true;
-            return; // Break out of the forEach loop early if any key has an empty value
-          }
+            updatedData[item["ContactType"]][key] = true;
+          } else updatedData[item["ContactType"]][key] = false;
         });
-
-        if (isEmpty) {
-          obj[item["ContactType"]] = true;
-        } else {
-          obj[item["ContactType"]] = false;
-        }
       }
     });
-    console.log("card validaiton ====>", obj);
-    return obj;
+    console.log("Field validaiton ====>", updatedData);
+    return updatedData;
   };
-
-  const fnSaveWindowSizePosition = (row) => {
+  const fnOpenVendorPage = (row) => {
     let JsonObj = {};
     JsonObj.Width = window.innerWidth;
     JsonObj.Height = window.innerHeight;
@@ -1777,10 +2133,51 @@ export default function VendorContacts() {
           "http://www.solutioncenter.biz/VendorChanges/Presentation/Webforms/VendorInfoChangeRequest_bootstrap.aspx?SessionId=",
           response
         );
-        //console.log("fnSaveWindowSizePosition response ==>", response);
+        //console.log("fnOpenVendorPage response ==>", response);
       })
       .catch((e) =>
-        console.log("Error in fnSaveWindowSizePositio method => ", e)
+        console.log("Error in fnSaveWindowSizePosition method => ", e)
+      );
+  };
+  const fnGridValueFormat = (value, name) => {
+    //let value = " | Approved: Expires 01/01/2200";
+    if (name === "Company" || name === "Status") {
+      value = value.split(":")[name === "Company" ? 1 : 0];
+      value = value.split(" ");
+      return value[value.length - 1];
+    }
+  };
+  const handleGetVendorByType = (ContactType) => {
+    handleAPI({
+      name: "Get_VendorLoanInfo_Type",
+      params: {
+        LoanId: handleParamFromURL(document.location.href, "LoanId"),
+        Type: ContactType,
+        Fullrows: 1,
+      },
+      method: "POST",
+    })
+      .then((response) => {
+        const index = fnGetIndex(ContactType);
+        const Result = JSON.parse(response);
+        console.log("Success Get_VendorLoanInfo_Type ==>", Result);
+        setResult((PrevObj) => {
+          const updateObj = [...PrevObj];
+          updateObj[index] = Result[0];
+          return updateObj;
+        });
+        setCardInfo((PrevObj) => {
+          const updateObj = [...PrevObj];
+          updateObj[index] = Result[0];
+          return updateObj;
+        });
+        // setOtherProps({
+        //   ...otherProps,
+        //   ["remove-" + index]: false,
+        // })
+      })
+      .catch((e) =>
+        console.log("Error in handleGetVendorByType method => ", e)
       );
   };
   /////////////// Function declarations ends here //////////////////////
@@ -1811,7 +2208,9 @@ export default function VendorContacts() {
             {item.label}
           </CustomText>
         ) : (
-          item.ActualType != 3 && (
+          item.ActualType != 3 &&
+          item.ActualType != 52 &&
+          item.ActualType != 56 && (
             <TouchableOpacity
               autoFocus
               onPress={(e) => {
@@ -1837,8 +2236,6 @@ export default function VendorContacts() {
   //Grid rows construction
   //if index -1 the button will show
   const CustomTableRow = (rowData, index) => {
-    // console.log(index);
-    // console.log(rowData['ContactTypename']);
     return (
       <TableWrapper
         key={index - 1}
@@ -1847,18 +2244,21 @@ export default function VendorContacts() {
           {
             backgroundColor: index % 2 == 0 ? "#d9ecff" : "#fff",
             zIndex:
-              ([3, 52].includes(rowData["ContactType"]) && index) === -1
+              [3, 52, 56].includes(rowData["ContactType"]) && index === -1
                 ? null
-                : -1,
+                : -11,
             padding: rowData["ContactType"] === 999 ? 0 : 10,
           },
         ]}
       >
         {(tabelProps.IsShowAppraiserSearch &&
-          rowData["ContactType"] === 3 &&
+          rowData["ContactType"] == 3 &&
           index === -1) ||
         (tabelProps.IsShowNotarySearch &&
-          rowData["ContactType"] === 52 &&
+          rowData["ContactType"] == 52 &&
+          index === -1) ||
+        (tabelProps.IsShowCondoPUDSearch &&
+          rowData["ContactType"] == 56 &&
           index === -1) ? (
           <Cell
             width={340}
@@ -1887,12 +2287,12 @@ export default function VendorContacts() {
                     setSelectedItemIndex(-1);
                     fnFocusInput(event);
                   }}
-                  // onBlur={(e) => {
-                  //   fnShowAddNew(rowData["ContactType"], "Hide");
-                  // }}
-                  // onFocus={(e) => {
-                  //   fnShowAddNew(rowData["ContactType"], "Show");
-                  // }}
+                  onBlur={(e) => {
+                    fnShowAddNew(rowData["ContactType"], "Hide");
+                  }}
+                  onFocus={(e) => {
+                    fnShowAddNew(rowData["ContactType"], "Show");
+                  }}
                   placeholder={`Search for ${rowData["ContactTypename"]}`}
                 />
                 <CustomText
@@ -1923,15 +2323,20 @@ export default function VendorContacts() {
                       size={17}
                       color={"black"}
                       onPress={(event) => {
-                        if (rowData["ContactType"] === 3)
+                        if (rowData["ContactType"] == 3)
                           setTableProps({
                             ...tabelProps,
                             IsShowAppraiserSearch: false,
                           });
-                        else
+                        else if (rowData["ContactType"] == 52)
                           setTableProps({
                             ...tabelProps,
                             IsShowNotarySearch: false,
+                          });
+                        else if (rowData["ContactType"] == 56)
+                          setTableProps({
+                            ...tabelProps,
+                            IsShowCondoPUDSearch: false,
                           });
                         setData({});
                         setInput({});
@@ -2033,7 +2438,7 @@ export default function VendorContacts() {
             }}
             data={[
               <View>
-                {[3, 52].includes(rowData["ContactType"]) ? (
+                {[3, 52, 56].includes(rowData["ContactType"]) ? (
                   index === -1 ? (
                     <View style={{ flexDirection: "row" }}>
                       <CustomText
@@ -2074,7 +2479,7 @@ export default function VendorContacts() {
                         >
                           {rowData.ContactTypename}:
                         </CustomText>
-                        {index !== -1 && (
+                        {/* {index !== -1 && (
                           <CustomText
                             style={{
                               position: "relative",
@@ -2097,17 +2502,21 @@ export default function VendorContacts() {
                               size={17}
                               color={"black"}
                               onPress={(event) => {
-                                if(rowData["ContactType"] === 52 )
-                                setTableProps({
-                                  ...tabelProps,
-                                  IsShowNotarySearch: true,
-                                });
-                                else
-                                handleRemoveAppraiser(rowData, index);
+                                if (rowData["ContactType"] === 52)
+                                  setTableProps({
+                                    ...tabelProps,
+                                    IsShowNotarySearch: true,
+                                  });
+                                else if (rowData["ContactType"] === 56)
+                                  setTableProps({
+                                    ...tabelProps,
+                                    IsShowCondoPUDSearch: true,
+                                  });
+                                else handleRemoveAppraiser(rowData, index);
                               }}
                             />
                           </CustomText>
-                        )}
+                        )} */}
                       </View>
                       <CustomText
                         style={[
@@ -2115,7 +2524,7 @@ export default function VendorContacts() {
                           { fontSize: 12 },
                         ]}
                         onPress={
-                          (e) => fnSaveWindowSizePosition(rowData)
+                          (e) => fnOpenVendorPage(rowData)
                           // handleWebPageOpen(
                           //   rowData,
                           //   Platform.OS === "web" &&
@@ -2151,7 +2560,11 @@ export default function VendorContacts() {
               (rowData["IsButton"] && index === -1) ||
               //index === -1 ||
               (tabelProps["showWareHouseOption"] &&
-                rowData["ContactType"] === 19) || (rowData["ContactType"] === 52 && tabelProps['IsShowNotarySearch'])
+                rowData["ContactType"] === 19) ||
+              (rowData["ContactType"] === 52 &&
+                tabelProps["IsShowNotarySearch"]) ||
+              (rowData["ContactType"] === 56 &&
+                tabelProps["IsShowCondoPUDSearch"])
                 ? "none"
                 : "block",
           }}
@@ -2162,7 +2575,7 @@ export default function VendorContacts() {
                 {rowData.Companyname}
               </CustomText>
               <CustomText style={{ flexDirection: "row", fontSize: 12 }}>
-                {[1, 17].includes(rowData["ContactType"]) && (
+                {rowData["CompanyStatus"] && (
                   <View style={{ flexDirection: "row" }}>
                     <CustomText
                       bold={true}
@@ -2179,7 +2592,7 @@ export default function VendorContacts() {
                         color: "#6c757d",
                       }}
                     >
-                      {"01/01/2200"}
+                      {fnGridValueFormat(rowData["CompanyStatus"], "Company")}
                     </CustomText>
                   </View>
                 )}
@@ -2223,12 +2636,13 @@ export default function VendorContacts() {
           }
           key={"cell3"}
           data={
-            rowData["ContactType"] === 1 ? (
-              <CustomText style={{ fontSize: 12, color: "green" }}>
-                {"Approved"}
-              </CustomText>
-            ) : tabelProps["showWareHouseOption"] &&
-              rowData["ContactType"] === 19 ? (
+            // rowData["ContactType"] === 1 ? (
+            //   <CustomText style={{ fontSize: 12, color: "green" }}>
+            //     {"Approved"}
+            //   </CustomText>
+            // ) :
+            tabelProps["showWareHouseOption"] &&
+            rowData["ContactType"] === 19 ? (
               <View>
                 <Dropdown
                   isValid={false}
@@ -2246,6 +2660,18 @@ export default function VendorContacts() {
                   isMap={true}
                 />
               </View>
+            ) : rowData["CompanyStatus"] && index !== -1 ? (
+              <CustomText
+                style={{
+                  fontSize: 12,
+                  color:
+                    rowData["CompanyStatus"].indexOf("Approved") !== -1
+                      ? "green"
+                      : "red",
+                }}
+              >
+                {fnGridValueFormat(rowData["CompanyStatus"], "Status")}
+              </CustomText>
             ) : null
           }
           // textStyle={styles["table-text"]}
@@ -2255,19 +2681,94 @@ export default function VendorContacts() {
           key={"cell5"}
           data={
             <>
-              {[17, 27, 22].includes(rowData["ContactType"]) ? (
+              {[17, 27, 22, 56, 3, 52].includes(rowData["ContactType"]) &&
+              index !== -1 ? (
                 <View>
-                  <InputField
-                    //autoFocus
-                    validate={rowData.FileNumber.length === 0 ? true : false}
-                    type="default"
-                    value={rowData.FileNumber}
-                    placeholder="File #"
-                    style={[styles["grid-input"], { outline: "none" }]}
-                    onChangeText={(Text) => {
-                      handleGridChange(index, "FileNumber", Text, "Grid");
-                    }}
-                  />
+                  {[17, 27, 22, 56].includes(rowData["ContactType"]) && (
+                    <View>
+                      <InputField
+                        //autoFocus
+                        validate={
+                          rowData.FileNumber.length === 0 ? true : false
+                        }
+                        type="default"
+                        value={rowData.FileNumber}
+                        placeholder="File #"
+                        style={[styles["grid-input"], { outline: "none" }]}
+                        onChangeText={(Text) => {
+                          handleGridChange(index, "FileNumber", Text, "Grid");
+                        }}
+                      />
+                    </View>
+                  )}
+                  {index !== -1 &&
+                    [3, 52, 56].includes(rowData["ContactType"]) && (
+                      // <CustomText
+                      //   style={{
+                      //     position: "relative",
+                      //     right: -15,
+                      //     top: -17,
+                      //   }}
+                      // >
+                      //   <FontAwesome
+                      //     name="close"
+                      //     style={[
+                      //       styles["modal-close"],
+                      //       {
+                      //         color: "red",
+                      //         cursor: "pointer",
+                      //         opacity: 0.8,
+                      //         top: -2,
+                      //       },
+                      //     ]}
+                      //     strokeWidth={30}
+                      //     size={17}
+                      //     color={"black"}
+                      //     onPress={(event) => {
+                      //       if (rowData["ContactType"] === 52)
+                      //         setTableProps({
+                      //           ...tabelProps,
+                      //           IsShowNotarySearch: true,
+                      //         });
+                      //       else if (rowData["ContactType"] === 56)
+                      //         setTableProps({
+                      //           ...tabelProps,
+                      //           IsShowCondoPUDSearch: true,
+                      //         });
+                      //       else handleRemoveAppraiser(rowData, index);
+                      //     }}
+                      //   />
+                      // </CustomText>
+                      <TouchableOpacity
+                        style={[
+                          [styles.buttonContainer],
+                          { marginTop: 5, width: 60 },
+                        ]}
+                        onPress={(event) => {
+                          // if (rowData["ContactType"] === 52)
+                          //   setTableProps({
+                          //     ...tabelProps,
+                          //     IsShowNotarySearch: true,
+                          //   });
+                          // else if (rowData["ContactType"] === 56)
+                          //   setTableProps({
+                          //     ...tabelProps,
+                          //     IsShowCondoPUDSearch: true,
+                          //   });
+                          // else
+                          handleRemoveAppraiser(rowData, index);
+                        }}
+                      >
+                        <CustomText
+                          style={[
+                            styles["btn"],
+                            { alignSelf: "center", fontSize: 10 },
+                          ]}
+                        >
+                          {"Remove"}
+                        </CustomText>
+                      </TouchableOpacity>
+                    )}
                 </View>
               ) : rowData["ContactType"] == 19 ? (
                 <View
@@ -2412,48 +2913,2931 @@ export default function VendorContacts() {
     );
   };
 
-  /////////////////////////////// Component declaration ends here /////////////////////////
-  return (
-    <View>
-      {result.length === 0 ? (
-        <CustomText style={styles["card-Loading"]}>Loading...</CustomText>
-      ) : (
-        <>
-          {/* Cards Section */}
-          {/* <TouchableWithoutFeedback onPress={handlePressOutside}> */}
-          <View
-            style={[
-              styles["card-parent"],
-              windowWidth < 1000 && styles["card-small"],
-            ]}
-          >
-            {result?.map((row, index) => (
+  const Vendors = () => {
+    return (
+      <View>
+        {result.length === 0 ? (
+          <CustomText style={styles["card-Loading"]}>Loading...</CustomText>
+        ) : (
+          <>
+            {/* Cards Section */}
+            {/* <TouchableWithoutFeedback onPress={handlePressOutside}> */}
+            <View
+              style={[
+                styles["card-parent"],
+                windowWidth < 1000 && styles["card-small"],
+              ]}
+            >
+              {result?.map((row, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles["card-container"],
+                    // (index === 1 && row["DisplaySeller"] == 0) ||
+                    // (index === 5 && row["IsEmpty"])
+                    row["DisplaySeller"] == 0
+                      ? index === 1
+                        ? styles["card-hide"]
+                        : { display: "none" }
+                      : "",
+                    (index === 1 && row["IsEmpty"] && windowWidth < 1000) ||
+                    (index === 5 && row["IsEmpty"] && windowWidth < 1000)
+                      ? { display: "none" }
+                      : "",
+                    copyAgent[row["ContactType"]] &&
+                      [43, 50, 51].includes(row["ContactType"]) &&
+                      styles["card-disable"], // This is for disabling the card when no realtor is checked
+                    cardValidation[row["ContactType"]] &&
+                      (!copyAgent[row["ContactType"]] ||
+                        [2, 48].includes(row["ContactType"])) &&
+                      styles["card-validation"],
+                  ]}
+                >
+                  <View style={styles["card-child"]}>
+                    <View style={styles["card-header"]}>
+                      <CustomText style={styles["card-Title"]}>
+                        {row.ContactTypename}
+                      </CustomText>
+                      {/* To show the header buttons based on the vendor "0" is for Seller */}
+                      {row["ContactType"] != 0 ? (
+                        <>
+                          {!validation[row["ContactType"]] && (
+                            <>
+                              {!editCard[row["ContactType"]] &&
+                                !editCompany[row["ContactType"]] && (
+                                  <View style={styles["btn"]}>
+                                    {!otherProps["remove-" + index] ? (
+                                      <>
+                                        <TouchableOpacity
+                                          onPress={(e) => {
+                                            handleCompanyChange(
+                                              row["ContactType"]
+                                            );
+                                          }}
+                                          style={[styles.buttonContainer]}
+                                        >
+                                          <CustomText style={styles["btn"]}>
+                                            {"Change"}
+                                          </CustomText>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                          onPress={(e) => {
+                                            handleEditCard(row, "EditCard");
+                                          }}
+                                          style={[styles.buttonContainer]}
+                                        >
+                                          <CustomText style={styles["btn"]}>
+                                            {"Edit"}
+                                          </CustomText>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                          onPress={(e) => {
+                                            // setModalVisible({
+                                            //   Remove: true,
+                                            //   Data: row,
+                                            // });
+
+                                            setOtherProps({
+                                              ...otherProps,
+                                              ["remove-" + index]: true,
+                                            });
+                                          }}
+                                          style={[
+                                            [styles.buttonContainer],
+                                            // { backgroundColor: "#ffb752" },
+                                            { backgroundColor: "#ec971f" },
+                                          ]}
+                                        >
+                                          <CustomText
+                                            style={[
+                                              styles["btn"],
+                                              { color: "white" },
+                                            ]}
+                                          >
+                                            {"Remove"}
+                                          </CustomText>
+                                        </TouchableOpacity>
+                                      </>
+                                    ) : (
+                                      <View
+                                        style={styles["remove-card-header"]}
+                                      >
+                                        <CustomText
+                                          style={{
+                                            color: "#fff",
+                                            marginRight: 10,
+                                          }}
+                                        >
+                                          Are you sure want to remove?
+                                        </CustomText>
+                                        <View style={styles["btn"]}>
+                                          <TouchableOpacity
+                                            onPress={(e) => {
+                                              handleRemoveSellerOrAgent(row);
+                                              setOtherProps({
+                                                ...otherProps,
+                                                ["remove-" + index]: false,
+                                              });
+                                              // setCopyAgent({
+                                              //   ...copyAgent,
+                                              //   [row["ContactType"]]: false,
+                                              // });
+                                            }}
+                                            style={[
+                                              [styles.buttonContainer],
+                                              // { backgroundColor: "#ffb752" },
+                                              { backgroundColor: "#5cb85c" },
+                                            ]}
+                                          >
+                                            <CustomText
+                                              style={[
+                                                styles["btn"],
+                                                { color: "white" },
+                                              ]}
+                                            >
+                                              {"Yes"}
+                                            </CustomText>
+                                          </TouchableOpacity>
+                                          <TouchableOpacity
+                                            onPress={(e) => {
+                                              setOtherProps({
+                                                ...otherProps,
+                                                ["remove-" + index]: false,
+                                              });
+                                            }}
+                                            style={[
+                                              [styles.buttonContainer],
+                                              // { backgroundColor: "#ffb752" },
+                                              { backgroundColor: "#d9534f" },
+                                            ]}
+                                          >
+                                            <CustomText
+                                              style={[
+                                                styles["btn"],
+                                                { color: "white" },
+                                              ]}
+                                            >
+                                              {"No"}
+                                            </CustomText>
+                                          </TouchableOpacity>
+                                        </View>
+                                      </View>
+                                    )}
+                                  </View>
+                                )}
+                            </>
+                          )}
+                          <>
+                            {editCard[row["ContactType"]] ||
+                            otherProps["showSavebtn-" + index] ? (
+                              <View style={styles["btn"]}>
+                                <TouchableOpacity
+                                  style={[styles.buttonContainer]}
+                                  onPress={(e) => {
+                                    handleVendorSave(index);
+                                  }}
+                                >
+                                  <CustomText style={styles["btn"]}>
+                                    {"Save"}
+                                  </CustomText>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  onPress={(e) => {
+                                    handleCardCancel(row, index);
+                                  }}
+                                  style={[styles.buttonContainer]}
+                                >
+                                  <CustomText style={styles["btn"]}>
+                                    {"Cancel"}
+                                  </CustomText>
+                                </TouchableOpacity>
+                              </View>
+                            ) : null}
+                          </>
+                        </>
+                      ) : (
+                        <>
+                          {sellerInfo["RowData"].length === 1 &&
+                          sellerInfo["RowData"][0].AgentID == 0 ? null : (
+                            <View style={styles["btn"]}>
+                              <TouchableOpacity
+                                onPress={(e) => {
+                                  toggleModal("Seller");
+
+                                  setSellerTabelProps({
+                                    ...sellerTabelProps,
+                                    EditRow: [],
+                                  });
+                                }}
+                                style={[styles.buttonContainer]}
+                              >
+                                <CustomText style={styles["btn"]}>
+                                  {"Add"}
+                                </CustomText>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                onPress={(e) => {
+                                  toggleModal("Seller");
+                                  // setData({});
+                                  // setInput({});
+                                  setSellerTabelProps({
+                                    ...sellerTabelProps,
+                                    EditRow: [],
+                                  });
+                                }}
+                                style={[styles.buttonContainer]}
+                              >
+                                <CustomText style={styles["btn"]}>
+                                  {"Edit"}
+                                </CustomText>
+                              </TouchableOpacity>
+                            </View>
+                          )}
+                        </>
+                      )}
+                    </View>
+                    {/* To show the body buttons based on the vendor "0" is for Seller */}
+                    {row["ContactType"] == 0 ? (
+                      <>
+                        <View
+                          style={[
+                            {
+                              minHeight: Platform.OS === "web" ? 250 : null,
+                            },
+                          ]}
+                        >
+                          {sellerInfo["RowData"].length > 3 && (
+                            <View style={{ alignSelf: "end", marginTop: 5 }}>
+                              <TouchableOpacity
+                                style={[styles.buttonContainer]}
+                                onPress={(e) => {
+                                  toggleModal("Seller");
+                                }}
+                              >
+                                <CustomText style={styles["btn"]}>
+                                  {"View Additional Sellers"}
+                                </CustomText>
+                              </TouchableOpacity>
+                            </View>
+                          )}
+                          <View
+                            style={[
+                              styles["card-body"],
+                              { gridTemplateColumns: "repeat(3, 1fr)" },
+                            ]}
+                          >
+                            {sellerInfo["RowData"]?.map((e, index) => (
+                              <>
+                                {index < 3 && (
+                                  <View style={{ gap: 10 }}>
+                                    {e.AgentID == 0 &&
+                                    sellerInfo["RowData"].length === 1 ? (
+                                      <View
+                                        style={[
+                                          styles["card-input"],
+                                          // styles["card-item"],
+                                          Platform.OS !== "web" && {
+                                            flexDirection: "row",
+                                          },
+                                          { width: 430 },
+                                        ]}
+                                      >
+                                        <InputField
+                                          value={AutoCinput["0"] || ""}
+                                          label="Add Company or Seller Name, Email or Cell Phone"
+                                          type="default"
+                                          name="EmailorCellPhone"
+                                          onChangeText={(text) => {
+                                            handleCompanySearch(text, "0", "S");
+                                          }}
+                                          onKeyPress={(event) => {
+                                            setSelectedItemIndex(-1);
+                                            fnFocusInput(event);
+                                          }}
+                                          onBlur={(e) => {
+                                            fnShowAddNew(0, "Hide");
+                                          }}
+                                          onFocus={(e) => {
+                                            fnShowAddNew(0, "Show");
+                                          }}
+                                          placeholder="Search for Company or Seller Name, Email or Cell Phone"
+                                        />
+                                        <CustomText
+                                          style={{
+                                            position: "absolute",
+                                            right: 0,
+                                            top: 35,
+                                          }}
+                                        >
+                                          {otherProps[e["ContactType"]] && (
+                                            <View style={{ right: 30 }}>
+                                              <ArrowSpinner />
+                                            </View>
+                                          )}
+                                        </CustomText>
+                                        {AutoCompdata[e["ContactType"]] &&
+                                          !isModalVisible.Seller && (
+                                            <FlatList
+                                              style={styles["search-drop-down"]}
+                                              data={
+                                                AutoCompdata[e["ContactType"]]
+                                              }
+                                              showsVerticalScrollIndicator={
+                                                true
+                                              }
+                                              removeClippedSubviews={true}
+                                              ref={flatListRef}
+                                              renderItem={({
+                                                item,
+                                                index: i,
+                                              }) => (
+                                                <Pressable
+                                                  // ref={btnAddNewRef}
+                                                  ref={(ref) =>
+                                                    setListRef(i, ref)
+                                                  }
+                                                  style={({ pressed }) => [
+                                                    {
+                                                      opacity: pressed
+                                                        ? 0.5
+                                                        : 1,
+                                                      borderWidth: 1,
+                                                      borderColor: "silver",
+                                                      borderTopWidth: 0,
+                                                      backgroundColor:
+                                                        i === selectedItemIndex
+                                                          ? "yellow"
+                                                          : i % 2 == 0
+                                                          ? "#d9ecff"
+                                                          : "#fff",
+                                                    },
+                                                    isHovered &&
+                                                      styles["HoverBgColor"],
+                                                  ]}
+                                                  onPress={(event) => {
+                                                    handleOnkeyPressFlatlist(
+                                                      AutoCompdata[
+                                                        e["ContactType"]
+                                                      ][selectedItemIndex],
+                                                      1
+                                                    );
+                                                  }}
+                                                >
+                                                  <View>
+                                                    {handleTypeaheadOption(
+                                                      item,
+                                                      1
+                                                    )}
+                                                  </View>
+                                                </Pressable>
+                                              )}
+                                              keyExtractor={(item) => item.id}
+                                            />
+                                          )}
+                                      </View>
+                                    ) : (
+                                      <>
+                                        {(e.FirstName || e.LastName) && (
+                                          <View>
+                                            <View
+                                              style={{
+                                                maxWidth: 250,
+                                                marginRight: 5,
+                                              }}
+                                            >
+                                              <CustomText
+                                                onPress={(e) => {
+                                                  toggleModal("Seller");
+                                                  // setData({});
+                                                  // setInput({});
+                                                }}
+                                                style={
+                                                  styles["card-text-underline"]
+                                                }
+                                                bold={true}
+                                              >
+                                                {`${e.FirstName} ${e.LastName}`}
+                                              </CustomText>
+                                            </View>
+                                          </View>
+                                        )}
+                                        <View>
+                                          <CustomText
+                                            onPress={(e) => {
+                                              !e.FirstName && !e.LastName
+                                                ? toggleModal("Seller")
+                                                : // setData({});
+                                                  // setInput({});
+                                                  null;
+                                            }}
+                                            style={
+                                              !e.FirstName &&
+                                              !e.LastName &&
+                                              styles["card-text-underline"]
+                                            }
+                                          >
+                                            {e.Companyname}
+                                          </CustomText>
+                                        </View>
+                                        <View>
+                                          <CustomText>
+                                            {e.AgentEmail}
+                                          </CustomText>
+                                        </View>
+                                        <View>
+                                          <CustomText>{e.Phone}</CustomText>
+                                        </View>
+                                      </>
+                                    )}
+                                  </View>
+                                )}
+                              </>
+                            ))}
+
+                            {/* To show the search field when there is no sellers exist */}
+                            {sellerInfo["RowData"].length == 0 && (
+                              <View
+                                style={[
+                                  styles["card-input"],
+                                  // styles["card-item"],
+                                  Platform.OS !== "web" && {
+                                    flexDirection: "row",
+                                  },
+                                  { width: 430 },
+                                ]}
+                              >
+                                <InputField
+                                  value={AutoCinput["0"] || ""}
+                                  label="Add Company or Seller Name, Email or Cell Phone"
+                                  type="default"
+                                  name="EmailorCellPhone"
+                                  onChangeText={(text) => {
+                                    handleCompanySearch(text, "0", "S");
+                                  }}
+                                  onKeyPress={(event) => {
+                                    setSelectedItemIndex(-1);
+                                    fnFocusInput(event);
+                                  }}
+                                  onBlur={(e) => {
+                                    fnShowAddNew(0, "Hide");
+                                  }}
+                                  onFocus={(e) => {
+                                    fnShowAddNew(0, "Show");
+                                  }}
+                                  placeholder="Search for Company or Seller Name, Email or Cell Phone"
+                                />
+                                <CustomText
+                                  style={{
+                                    position: "absolute",
+                                    right: 0,
+                                    top: 35,
+                                  }}
+                                >
+                                  {otherProps["0"] && (
+                                    <View style={{ right: 30 }}>
+                                      <ArrowSpinner />
+                                    </View>
+                                  )}
+                                  {/* {!validation["0"] && (
+                                  <FontAwesome
+                                    name="close"
+                                    style={[
+                                      styles["modal-close"],
+                                      {
+                                        color: "red",
+                                        cursor: "pointer",
+                                        opacity: 0.8,
+                                        top: -2,
+                                      },
+                                    ]}
+                                    strokeWidth={30}
+                                    size={17}
+                                    color={"black"}
+                                    onPress={(event) => {
+                                      handleCloseEditCompany(e);
+                                    }}
+                                  />
+                                )} */}
+                                </CustomText>
+                                {AutoCompdata["0"] &&
+                                  !isModalVisible.Seller && (
+                                    <FlatList
+                                      style={styles["search-drop-down"]}
+                                      data={AutoCompdata["0"]}
+                                      showsVerticalScrollIndicator={true}
+                                      removeClippedSubviews={true}
+                                      ref={flatListRef}
+                                      renderItem={({ item, index: i }) => (
+                                        <Pressable
+                                          // ref={btnAddNewRef}
+                                          ref={(ref) => setListRef(i, ref)}
+                                          style={({ pressed }) => [
+                                            {
+                                              opacity: pressed ? 0.5 : 1,
+                                              borderWidth: 1,
+                                              borderColor: "silver",
+                                              borderTopWidth: 0,
+                                              backgroundColor:
+                                                i === selectedItemIndex
+                                                  ? "yellow"
+                                                  : i % 2 == 0
+                                                  ? "#d9ecff"
+                                                  : "#fff",
+                                            },
+                                            isHovered && styles["HoverBgColor"],
+                                          ]}
+                                          onPress={(event) => {
+                                            handleOnkeyPressFlatlist(
+                                              AutoCompdata["0"][
+                                                selectedItemIndex
+                                              ],
+                                              1
+                                            );
+                                          }}
+                                        >
+                                          <View>
+                                            {handleTypeaheadOption(item, 1)}
+                                          </View>
+                                        </Pressable>
+                                      )}
+                                      keyExtractor={(item) => item.id}
+                                    />
+                                  )}
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      </>
+                    ) : (
+                      <>
+                        {!editCard[row["ContactType"]] ||
+                        (queryString["IsEditRights"] != 1 &&
+                          row["isEditRestricted"] == 1) ? (
+                          <>
+                            {editCard[row["ContactType"]] &&
+                              row["isEditRestricted"] == 1 &&
+                              queryString["IsEditRights"] == 0 && (
+                                <View
+                                  style={{ paddingLeft: 10, paddingTop: 10 }}
+                                >
+                                  <CustomText
+                                    style={{ fontSize: 11, color: "red" }}
+                                  >
+                                    Editing this Vendor is Restricted.
+                                  </CustomText>
+                                  <CustomText
+                                    style={{ fontSize: 11, color: "red" }}
+                                  >
+                                    Email{" "}
+                                    <CustomText
+                                      style={[
+                                        { fontSize: 11, color: "red" },
+                                        // styles["card-text-underline"],
+                                      ]}
+                                      onPress={() => {
+                                        let subject = "",
+                                          body = "";
+                                        const emailUrl = `mailto:MakeMeAware@directcorp.com?subject=${encodeURIComponent(
+                                          subject
+                                        )}&body=${encodeURIComponent(body)}`;
+                                        Linking.openURL(emailUrl);
+                                      }}
+                                    >
+                                      MakeMeAware@directcorp.com
+                                    </CustomText>{" "}
+                                    to remove this Restriction
+                                  </CustomText>
+                                </View>
+                              )}
+                            <View
+                              style={[
+                                styles["card-body"],
+                                {
+                                  minHeight: Platform.OS === "web" ? 250 : null,
+                                  gridTemplateColumns: editCompany[
+                                    row["ContactType"]
+                                  ]
+                                    ? "repeat(1,1fr)"
+                                    : "repeat(2,1fr)",
+                                },
+                              ]}
+                            >
+                              <>
+                                {/* COMPANY */}
+
+                                <View
+                                  style={{
+                                    flexDirection: "column",
+                                    // backgroundColor: "red",
+                                    gap: 10,
+                                  }}
+                                >
+                                  <View
+                                    style={[
+                                      styles["card-item"],
+                                      {
+                                        flexDirection: !editCompany[
+                                          row["ContactType"]
+                                        ]
+                                          ? "row"
+                                          : "column",
+                                      },
+                                    ]}
+                                  >
+                                    {!editCompany[row["ContactType"]] ? (
+                                      <View
+                                        style={{ alignItems: "flex-start" }}
+                                      >
+                                        <View style={{ maxWidth: 160 }}>
+                                          <CustomText
+                                            bold={true}
+                                            style={[
+                                              Platform.OS === "web" &&
+                                                styles["card-text-underline"],
+                                              {
+                                                marginRight: 5,
+                                                flexWrap: "wrap",
+                                                width:
+                                                  Platform.OS !== "web" &&
+                                                  "60%",
+                                              },
+                                            ]}
+                                            onPress={
+                                              (e) => fnOpenVendorPage(row)
+                                              // handleWebPageOpen(
+                                              //   row,
+                                              //   Platform.OS === "web" &&
+                                              //     handleParamFromURL(
+                                              //       document.location.href,
+                                              //       "SessionId"
+                                              //     ),
+                                              //   "http://www.solutioncenter.biz/VendorChanges/Presentation/Webforms/VendorInfoChangeRequest_bootstrap.aspx?SessionId="
+                                              // )
+                                            }
+                                          >
+                                            {row.Companyname}
+                                          </CustomText>
+                                        </View>
+                                      </View>
+                                    ) : (
+                                      <>
+                                        <View
+                                          style={[
+                                            styles["card-input"],
+                                            // styles["card-item"],
+                                            Platform.OS !== "web" && {
+                                              flexDirection: "row",
+                                            },
+                                          ]}
+                                          ref={searchInputRef}
+                                        >
+                                          <InputField
+                                            autoFocus={
+                                              focusCompany[row["ContactType"]]
+                                                ? true
+                                                : false
+                                            }
+                                            value={
+                                              AutoCinput[row["ContactType"]] ||
+                                              ""
+                                            }
+                                            label="Search for Company or Agent Name, Email or Cell Phone"
+                                            type="default"
+                                            name="EmailorCellPhone"
+                                            onChangeText={(text) => {
+                                              handleCompanySearch(
+                                                text,
+                                                row["ContactType"],
+                                                "V"
+                                              );
+                                            }}
+                                            onKeyPress={(e) => {
+                                              setSelectedItemIndex(-1);
+                                              fnFocusInput(e);
+                                            }}
+                                            onBlur={(event) => {
+                                              fnShowAddNew(
+                                                row["ContactType"],
+                                                "Hide",
+                                                event
+                                              );
+                                            }}
+                                            onFocus={(e) => {
+                                              fnShowAddNew(
+                                                row["ContactType"],
+                                                "Show"
+                                              );
+                                            }}
+                                            placeholder="Search for Company or Agent Name, Email or Cell Phone"
+                                          />
+                                          <CustomText
+                                            style={{
+                                              position: "absolute",
+                                              right: 0,
+                                              top: 35,
+                                            }}
+                                          >
+                                            {otherProps[row["ContactType"]] && (
+                                              <View style={{ right: 30 }}>
+                                                <ArrowSpinner />
+                                              </View>
+                                            )}
+                                            {!validation[row["ContactType"]] &&
+                                              row["AgentID"] && (
+                                                <FontAwesome
+                                                  name="close"
+                                                  style={[
+                                                    styles["modal-close"],
+                                                    {
+                                                      color: "red",
+                                                      cursor: "pointer",
+                                                      opacity: 0.8,
+                                                      top: -2,
+                                                    },
+                                                  ]}
+                                                  strokeWidth={30}
+                                                  size={17}
+                                                  color={"black"}
+                                                  onPress={(e) => {
+                                                    handleCloseEditCompany(row);
+                                                  }}
+                                                />
+                                              )}
+                                          </CustomText>
+                                          {AutoCompdata[row["ContactType"]] && (
+                                            <FlatList
+                                              style={styles["search-drop-down"]}
+                                              data={
+                                                AutoCompdata[row["ContactType"]]
+                                              }
+                                              showsVerticalScrollIndicator={
+                                                true
+                                              }
+                                              removeClippedSubviews={true}
+                                              ref={flatListRef}
+                                              renderItem={({
+                                                item,
+                                                index: i,
+                                              }) => (
+                                                <Pressable
+                                                  // ref={btnAddNewRef}
+                                                  ref={(ref) =>
+                                                    setListRef(i, ref)
+                                                  }
+                                                  style={({ pressed }) => [
+                                                    {
+                                                      opacity: pressed
+                                                        ? 0.5
+                                                        : 1,
+                                                      borderWidth: 1,
+                                                      borderColor: "silver",
+                                                      borderTopWidth: 0,
+                                                      backgroundColor:
+                                                        i === selectedItemIndex
+                                                          ? "yellow"
+                                                          : i % 2 == 0
+                                                          ? "#d9ecff"
+                                                          : "#fff",
+                                                    },
+                                                    isHovered &&
+                                                      styles["HoverBgColor"],
+                                                  ]}
+                                                  onPress={(e) => {
+                                                    handleOnkeyPressFlatlist(
+                                                      AutoCompdata[
+                                                        row["ContactType"]
+                                                      ][selectedItemIndex],
+                                                      index
+                                                    );
+                                                  }}
+                                                >
+                                                  <View>
+                                                    {handleTypeaheadOption(
+                                                      item,
+                                                      index
+                                                    )}
+                                                  </View>
+                                                </Pressable>
+                                              )}
+                                              keyExtractor={(item) => item.id}
+                                            />
+                                          )}
+                                        </View>
+                                      </>
+                                    )}
+                                  </View>
+                                  {!editCompany[row["ContactType"]] && (
+                                    <>
+                                      <View style={styles["card-item"]}>
+                                        {row.CompanyStreetAddr ? (
+                                          <CustomText>
+                                            {row.CompanyStreetAddr}
+                                          </CustomText>
+                                        ) : (
+                                          <CustomText
+                                            bold={true}
+                                            style={[
+                                              styles["card-lablebold"],
+                                              styles["labelBackground"],
+                                            ]}
+                                          >
+                                            {"Company Address"}
+                                          </CustomText>
+                                        )}
+                                        <CustomText>
+                                          {/* {getAddress(row.CompanyAddress) || ""} */}
+                                          {`${row.CompanyCity}${
+                                            row.CompanyCity && ","
+                                          } ${row.CompanyState} ${
+                                            row.CompanyZip
+                                          }`}
+                                        </CustomText>
+                                        {!row.CompanyZip && (
+                                          <CustomText
+                                            bold={true}
+                                            style={[
+                                              styles["card-lablebold"],
+                                              styles["labelBackground"],
+                                            ]}
+                                          >
+                                            {"Company Zip"}
+                                          </CustomText>
+                                        )}
+                                        {!row.CompanyCity && (
+                                          <CustomText
+                                            bold={true}
+                                            style={[
+                                              styles["card-lablebold"],
+                                              styles["labelBackground"],
+                                            ]}
+                                          >
+                                            {"Company City"}
+                                          </CustomText>
+                                        )}
+                                        {!row.CompanyState && (
+                                          <CustomText
+                                            bold={true}
+                                            style={[
+                                              styles["card-lablebold"],
+                                              styles["labelBackground"],
+                                            ]}
+                                          >
+                                            {"Company State"}
+                                          </CustomText>
+                                        )}
+                                      </View>
+
+                                      <View style={styles["card-item"]}>
+                                        {row.CompPhone ? (
+                                          <CustomText>
+                                            {row.CompPhone}
+                                          </CustomText>
+                                        ) : (
+                                          <CustomText
+                                            bold={true}
+                                            style={[
+                                              styles["card-lablebold"],
+                                              styles["labelBackground"],
+                                            ]}
+                                          >
+                                            {"Cell Phone"}
+                                          </CustomText>
+                                        )}
+                                      </View>
+                                      {row["ContactType"] !== 7 && (
+                                        <View
+                                          style={[
+                                            styles["card-item"],
+                                            {
+                                              flexDirection: "row",
+                                            },
+                                          ]}
+                                        >
+                                          <CustomText
+                                            bold={true}
+                                            style={[
+                                              styles["card-lablebold"],
+                                              { marginRight: 5 },
+                                              {
+                                                width:
+                                                  Platform.OS === "web"
+                                                    ? "fit-content"
+                                                    : null,
+                                                backgroundColor:
+                                                  row.CompanyLicense ||
+                                                  "yellow",
+                                              },
+                                            ]}
+                                          >
+                                            {"License "}
+                                          </CustomText>
+                                          <CustomText>
+                                            {row.CompanyLicense}
+                                          </CustomText>
+                                        </View>
+                                      )}
+                                      {[7, 2, 4, 17, 48, 49].includes(
+                                        row["ContactType"]
+                                      ) && (
+                                        <>
+                                          {queryString["IsEditRights"] == 1 ||
+                                          !editCard[row["ContactType"]] ? (
+                                            <View
+                                              style={[
+                                                styles["card-input"],
+                                                styles["card-item"],
+                                              ]}
+                                            >
+                                              <InputField
+                                                validate={
+                                                  // saveValidation[
+                                                  //   cardInfo[index][
+                                                  //     "ContactType"
+                                                  //   ]
+                                                  // ] !== undefined
+                                                  //   ? saveValidation[
+                                                  //       cardInfo[index][
+                                                  //         "ContactType"
+                                                  //       ]
+                                                  //     ]["FileNumber"]
+                                                  //   : false
+                                                  saveValidation[
+                                                    cardInfo[index][
+                                                      "ContactType"
+                                                    ]
+                                                  ]["FileNumber"]
+                                                }
+                                                label={
+                                                  row["ContactType"] === 7
+                                                    ? "Policy Number"
+                                                    : "File Number"
+                                                }
+                                                //autoFocus
+                                                type="default"
+                                                name={
+                                                  row["ContactType"] === 7
+                                                    ? "Policy Number"
+                                                    : "File Number"
+                                                }
+                                                value={
+                                                  cardInfo[index]["FileNumber"]
+                                                }
+                                                placeholder={
+                                                  row["ContactType"] === 7
+                                                    ? "Policy Number"
+                                                    : "File Number"
+                                                }
+                                                onChangeText={(Text) => {
+                                                  handleCardChange(
+                                                    index,
+                                                    "FileNumber",
+                                                    Text
+                                                  );
+                                                }}
+                                              />
+                                            </View>
+                                          ) : (
+                                            <>
+                                              {[7, 2, 4, 17, 48, 49].includes(
+                                                row["ContactType"]
+                                              ) && (
+                                                <View
+                                                  style={[
+                                                    styles["card-input"],
+                                                    styles["card-item"],
+                                                  ]}
+                                                >
+                                                  <InputField
+                                                    validate={
+                                                      // saveValidation[
+                                                      //   cardInfo[index][
+                                                      //     "ContactType"
+                                                      //   ]
+                                                      // ] !== undefined
+                                                      //   ? saveValidation[
+                                                      //       cardInfo[index][
+                                                      //         "ContactType"
+                                                      //       ]
+                                                      //     ]["FileNumber"]
+                                                      //   : false
+                                                      saveValidation[
+                                                        cardInfo[index][
+                                                          "ContactType"
+                                                        ]
+                                                      ]["FileNumber"]
+                                                    }
+                                                    label={
+                                                      row["ContactType"] === 7
+                                                        ? "Policy Number"
+                                                        : "File Number"
+                                                    }
+                                                    //autoFocus
+                                                    type="default"
+                                                    name={
+                                                      row["ContactType"] === 7
+                                                        ? "Policy Number"
+                                                        : "File Number"
+                                                    }
+                                                    value={
+                                                      cardInfo[index][
+                                                        "FileNumber"
+                                                      ]
+                                                    }
+                                                    placeholder={
+                                                      row["ContactType"] === 7
+                                                        ? "Policy Number"
+                                                        : "File Number"
+                                                    }
+                                                    onChangeText={(Text) => {
+                                                      handleCardChange(
+                                                        index,
+                                                        "FileNumber",
+                                                        Text
+                                                      );
+                                                    }}
+                                                    // style ={styles.InputField}
+                                                  />
+                                                </View>
+                                              )}
+                                            </>
+                                          )}
+                                        </>
+                                      )}
+                                    </>
+                                  )}
+                                </View>
+
+                                {/* AGENT */}
+                                {!editCompany[row["ContactType"]] && (
+                                  <View
+                                    style={{
+                                      flexDirection: "column",
+                                      // backgroundColor: "green",
+                                      gap: 10,
+                                    }}
+                                  >
+                                    <View style={[styles["card-item"]]}>
+                                      {/* <CustomText bold={true}>
+                                      {row.AgentFNN}
+                                    </CustomText> */}
+
+                                      {row.AgentFNN && (
+                                        <CustomText bold={true}>
+                                          {row.AgentFNN}
+                                        </CustomText>
+                                      )}
+                                      {!row.FirstName && (
+                                        <CustomText
+                                          bold={true}
+                                          style={[
+                                            styles["card-lablebold"],
+                                            styles["labelBackground"],
+                                          ]}
+                                        >
+                                          {"FirstName"}
+                                        </CustomText>
+                                      )}
+                                      {!row.LastName && (
+                                        <CustomText
+                                          bold={true}
+                                          style={[
+                                            styles["card-lablebold"],
+                                            styles["labelBackground"],
+                                          ]}
+                                        >
+                                          {"LastName"}
+                                        </CustomText>
+                                      )}
+                                    </View>
+
+                                    {/* {row.Phone !== "" && ( */}
+                                    <View style={styles["card-item"]}>
+                                      {/* <CustomText
+                                      
+                                      >
+                                        {row.Phone}
+                                      </CustomText> */}
+                                      {row.Phone ? (
+                                        <CustomText>{row.Phone}</CustomText>
+                                      ) : (
+                                        <CustomText
+                                          bold={true}
+                                          style={[
+                                            styles["card-lablebold"],
+                                            styles["labelBackground"],
+                                          ]}
+                                        >
+                                          {"Agent Cell Phone"}
+                                        </CustomText>
+                                      )}
+                                    </View>
+                                    {/* )} */}
+                                    <View style={styles["card-item"]}>
+                                      {/* <CustomText
+                                    
+                                    >
+                                      {row.AgentEmail}
+                                    </CustomText> */}
+                                      {row.AgentEmail ? (
+                                        <CustomText>
+                                          {row.AgentEmail}
+                                        </CustomText>
+                                      ) : (
+                                        <CustomText
+                                          bold={true}
+                                          style={[
+                                            styles["card-lablebold"],
+                                            styles["labelBackground"],
+                                          ]}
+                                        >
+                                          {"Agent Email"}
+                                        </CustomText>
+                                      )}
+                                    </View>
+                                    {row["ContactType"] !== 7 && (
+                                      <>
+                                        <View
+                                          style={[
+                                            styles["card-item"],
+                                            { flexDirection: "row" },
+                                          ]}
+                                        >
+                                          <CustomText
+                                            bold={true}
+                                            style={[
+                                              styles["card-lablebold"],
+                                              { marginRight: 5 },
+                                              {
+                                                width:
+                                                  Platform.OS === "web"
+                                                    ? "fit-content"
+                                                    : null,
+                                                backgroundColor:
+                                                  row.AgentLicense || "yellow",
+                                              },
+                                            ]}
+                                          >
+                                            {"Agent License "}
+                                          </CustomText>
+                                          <CustomText>
+                                            {row.AgentLicense}
+                                          </CustomText>
+                                        </View>
+                                      </>
+                                    )}
+                                  </View>
+                                )}
+                              </>
+                            </View>
+                          </>
+                        ) : (
+                          //Editing view Starts here
+                          <>
+                            <View
+                              style={[
+                                styles["card-body"],
+                                {
+                                  gridTemplateColumns: "repeat(1, 1fr)",
+                                  paddingTop: 0,
+                                },
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  styles["card-input"],
+                                  styles["card-item"],
+                                ]}
+                              >
+                                <InputField
+                                  validate={
+                                    saveValidation[
+                                      cardInfo[index]["ContactType"]
+                                    ] !== undefined
+                                      ? saveValidation[
+                                          cardInfo[index]["ContactType"]
+                                        ]["Companyname"]
+                                      : false
+                                  }
+                                  label="Company Name"
+                                  autoFocus
+                                  selectable={true}
+                                  type="default"
+                                  name="CompanyName"
+                                  value={cardInfo[index]["Companyname"]}
+                                  placeholder="Company Name"
+                                  onChangeText={(Text) => {
+                                    handleCardChange(
+                                      index,
+                                      "Companyname",
+                                      Text
+                                    );
+                                  }}
+                                  selection={
+                                    otherProps["textSelection-" + index] ===
+                                    undefined
+                                      ? { start: 0, end: 50 }
+                                      : null
+                                  }
+                                />
+                              </View>
+                            </View>
+                            <View
+                              style={[styles["card-body"], { paddingTop: 0 }]}
+                            >
+                              <View
+                                style={[
+                                  styles["card-input"],
+                                  styles["card-item"],
+                                ]}
+                              >
+                                <InputField
+                                  validate={
+                                    saveValidation[
+                                      cardInfo[index]["ContactType"]
+                                    ] !== undefined
+                                      ? saveValidation[
+                                          cardInfo[index]["ContactType"]
+                                        ]["FirstName"]
+                                      : false
+                                  }
+                                  label="Agent First Name"
+                                  //autoFocus
+                                  type="default"
+                                  name="AgentName"
+                                  value={cardInfo[index]["FirstName"]}
+                                  placeholder="Agent First Name"
+                                  onChangeText={(Text) => {
+                                    handleCardChange(index, "FirstName", Text);
+                                  }}
+                                />
+                              </View>
+                              <View
+                                style={[
+                                  styles["card-input"],
+                                  styles["card-item"],
+                                ]}
+                              >
+                                <InputField
+                                  validate={
+                                    saveValidation[
+                                      cardInfo[index]["ContactType"]
+                                    ]["LastName"]
+                                  }
+                                  label="Agent Last Name"
+                                  //autoFocus
+                                  type="default"
+                                  name="AgentName"
+                                  value={cardInfo[index]["LastName"]}
+                                  placeholder="Agent Last Name"
+                                  onChangeText={(Text) => {
+                                    handleCardChange(index, "LastName", Text);
+                                  }}
+                                />
+                              </View>
+                            </View>
+                            <View
+                              style={{
+                                padding: 10,
+                                paddingTop: 0,
+                                paddingBottom: 0,
+                                flexDirection: "row",
+                              }}
+                            >
+                              <View
+                                style={[
+                                  styles["card-input"],
+                                  styles["card-item"],
+                                  { width: "31%" },
+                                ]}
+                              >
+                                <InputField
+                                  validate={
+                                    // saveValidation[
+                                    //   cardInfo[index]["ContactType"]
+                                    // ] !== undefined
+                                    //   ? saveValidation[
+                                    //       cardInfo[index]["ContactType"]
+                                    //     ]["Phone"]
+                                    //   : false
+                                    saveValidation[
+                                      cardInfo[index]["ContactType"]
+                                    ]["Phone"]
+                                  }
+                                  label="Agent Cell Phone"
+                                  // autoFocus
+                                  type="default"
+                                  name=""
+                                  value={cardInfo[index]["Phone"]}
+                                  placeholder="Agent Cell Phone"
+                                  onChangeText={(Text) => {
+                                    handleCardChange(index, "Phone", Text);
+                                  }}
+                                  onBlur={(e) => {
+                                    let number = FormatPhoneLogin(
+                                      cardInfo[index]["Phone"]
+                                    );
+                                    handleCardChange(index, "Phone", number);
+                                  }}
+                                />
+                              </View>
+                              <View
+                                style={[
+                                  styles["card-input"],
+                                  styles["card-item"],
+                                  { width: "67%", marginLeft: 9 },
+                                ]}
+                              >
+                                <InputField
+                                  validate={
+                                    // saveValidation[
+                                    //   cardInfo[index]["ContactType"]
+                                    // ] !== undefined
+                                    //   ? saveValidation[
+                                    //       cardInfo[index]["ContactType"]
+                                    //     ]["AgentEmail"]
+                                    //   : false
+                                    saveValidation[
+                                      cardInfo[index]["ContactType"]
+                                    ]["AgentEmail"]
+                                  }
+                                  label="Agent Email"
+                                  //autoFocus
+                                  type="default"
+                                  name=""
+                                  value={cardInfo[index]["AgentEmail"]}
+                                  placeholder="Agent Email"
+                                  onChangeText={(Text) => {
+                                    handleCardChange(index, "AgentEmail", Text);
+                                  }}
+                                />
+                              </View>
+                            </View>
+                            <View
+                              style={[styles["card-body"], { paddingTop: 0 }]}
+                            >
+                              {row["ContactType"] !== 7 ? (
+                                <View
+                                  style={[
+                                    styles["card-input"],
+                                    styles["card-item"],
+                                  ]}
+                                >
+                                  <InputField
+                                    validate={
+                                      // saveValidation[
+                                      //   cardInfo[index]["ContactType"]
+                                      // ] !== undefined
+                                      //   ? saveValidation[
+                                      //       cardInfo[index]["ContactType"]
+                                      //     ]["AgentEmail"]
+                                      //   : false
+                                      saveValidation[
+                                        cardInfo[index]["ContactType"]
+                                      ]["AgentLicense"]
+                                    }
+                                    label="Agent License Number"
+                                    // autoFocus
+                                    type="default"
+                                    name=""
+                                    value={cardInfo[index]["AgentLicense"]}
+                                    placeholder="Agent License Number"
+                                    onChangeText={(Text) => {
+                                      handleCardChange(
+                                        index,
+                                        "AgentLicense",
+                                        Text
+                                      );
+                                    }}
+                                    // style ={styles.InputField}
+                                  />
+                                </View>
+                              ) : null}
+                            </View>
+                            <View
+                              style={{
+                                padding: 10,
+                                paddingTop: 0,
+                                flexDirection: "row",
+                              }}
+                            >
+                              <View
+                                style={[
+                                  styles["card-input"],
+                                  styles["card-item"],
+                                  { width: "64%" },
+                                ]}
+                              >
+                                <InputField
+                                  validate={
+                                    saveValidation[
+                                      cardInfo[index]["ContactType"]
+                                    ]["CompanyStreetAddr"]
+                                  }
+                                  label="Company Street Address"
+                                  //   autoFocus
+                                  type="default"
+                                  name="CompanyStreetAddr"
+                                  value={cardInfo[index]["CompanyStreetAddr"]}
+                                  placeholder="Company Street Address"
+                                  onChangeText={(Text) => {
+                                    handleCardChange(
+                                      index,
+                                      "CompanyStreetAddr",
+                                      Text
+                                    );
+                                  }}
+                                />
+                              </View>
+
+                              <View
+                                style={[
+                                  styles["card-input"],
+                                  styles["card-item"],
+                                  { width: "34%", marginLeft: 9 },
+                                ]}
+                              >
+                                <InputField
+                                  validate={
+                                    saveValidation[
+                                      cardInfo[index]["ContactType"]
+                                    ]["CompanyZip"]
+                                  }
+                                  label="Company Zip Code"
+                                  //   autoFocus
+                                  type="default"
+                                  name="CompanyAddress"
+                                  value={cardInfo[index]["CompanyZip"]}
+                                  placeholder="Company Zip Code"
+                                  onChangeText={(Text) => {
+                                    handleCardChange(index, "CompanyZip", Text);
+                                  }}
+                                  onBlur={(e) => {
+                                    fnAutoPopulateStateCity(
+                                      cardInfo[index]["CompanyZip"],
+                                      index
+                                    );
+                                  }}
+                                />
+                              </View>
+                            </View>
+                            <View
+                              style={[styles["card-body"], { paddingTop: 0 }]}
+                            >
+                              <View
+                                style={[
+                                  styles["card-input"],
+                                  styles["card-item"],
+                                ]}
+                              >
+                                <InputField
+                                  validate={
+                                    saveValidation[
+                                      cardInfo[index]["ContactType"]
+                                    ]["CompanyCity"]
+                                  }
+                                  label="Company City"
+                                  //   autoFocus
+                                  type="default"
+                                  name="CompanyAddress"
+                                  value={cardInfo[index]["CompanyCity"] || ""}
+                                  placeholder="Company City"
+                                  onChangeText={(Text) => {
+                                    handleCardChange(
+                                      index,
+                                      "CompanyCity",
+                                      Text
+                                    );
+                                  }}
+                                />
+                              </View>
+
+                              <View
+                                style={[
+                                  styles["card-input"],
+                                  styles["card-item"],
+                                ]}
+                              >
+                                <InputField
+                                  validate={
+                                    saveValidation[
+                                      cardInfo[index]["ContactType"]
+                                    ]["CompanyState"]
+                                  }
+                                  label="Company State"
+                                  //   autoFocus
+                                  type="default"
+                                  name="CompanyState"
+                                  value={cardInfo[index]["CompanyState"] || ""}
+                                  placeholder="Company State"
+                                  onChangeText={(Text) => {
+                                    handleCardChange(
+                                      index,
+                                      "CompanyState",
+                                      Text
+                                    );
+                                  }}
+                                />
+                              </View>
+                            </View>
+                            {/* Phone */}
+                            <View
+                              style={[
+                                styles["card-body"],
+                                {
+                                  paddingTop: 0,
+                                },
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  styles["card-input"],
+                                  styles["card-item"],
+                                ]}
+                              >
+                                <InputField
+                                  validate={
+                                    // saveValidation[
+                                    //   cardInfo[index]["ContactType"]
+                                    // ] !== undefined
+                                    //   ? saveValidation[
+                                    //       cardInfo[index]["ContactType"]
+                                    //     ]["CompPhone"]
+                                    //   : false
+                                    saveValidation[
+                                      cardInfo[index]["ContactType"]
+                                    ]["CompPhone"]
+                                  }
+                                  label="Company Phone"
+                                  //autoFocus
+                                  type="default"
+                                  name=""
+                                  value={cardInfo[index]["CompPhone"]}
+                                  placeholder="Company Phone"
+                                  onChangeText={(Text) => {
+                                    handleCardChange(index, "CompPhone", Text);
+                                  }}
+                                  onBlur={(e) => {
+                                    let number = FormatPhoneLogin(
+                                      cardInfo[index]["CompPhone"]
+                                    );
+                                    handleCardChange(
+                                      index,
+                                      "CompPhone",
+                                      number
+                                    );
+                                  }}
+                                />
+                              </View>
+                              <View
+                                style={[
+                                  styles["card-input"],
+                                  styles["card-item"],
+                                ]}
+                              ></View>
+
+                              {cardInfo[index]["ContactType"] != 7 ? (
+                                <>
+                                  <View
+                                    style={[
+                                      styles["card-input"],
+                                      styles["card-item"],
+                                    ]}
+                                  >
+                                    <InputField
+                                      validate={
+                                        // saveValidation[
+                                        //   cardInfo[index]["ContactType"]
+                                        // ] !== undefined
+                                        //   ? saveValidation[
+                                        //       cardInfo[index]["ContactType"]
+                                        //     ]["AgentEmail"]
+                                        //   : false
+                                        saveValidation[
+                                          cardInfo[index]["ContactType"]
+                                        ]["CompanyLicense"]
+                                      }
+                                      label="Company License Number"
+                                      // autoFocus
+                                      type="default"
+                                      name=""
+                                      value={cardInfo[index]["CompanyLicense"]}
+                                      placeholder="Company License Number"
+                                      onChangeText={(Text) => {
+                                        handleCardChange(
+                                          index,
+                                          "CompanyLicense",
+                                          Text
+                                        );
+                                      }}
+                                    />
+                                  </View>
+                                  <View
+                                    style={[
+                                      styles["card-input"],
+                                      styles["card-item"],
+                                    ]}
+                                  ></View>
+                                </>
+                              ) : null}
+                              {[7, 2, 4, 17, 48, 49].includes(
+                                row["ContactType"]
+                              ) && (
+                                <View
+                                  style={[
+                                    styles["card-input"],
+                                    styles["card-item"],
+                                  ]}
+                                >
+                                  <InputField
+                                    validate={
+                                      // saveValidation[
+                                      //   cardInfo[index]["ContactType"]
+                                      // ] !== undefined
+                                      //   ? saveValidation[
+                                      //       cardInfo[index]["ContactType"]
+                                      //     ]["FileNumber"]
+                                      //   : false
+
+                                      saveValidation[
+                                        cardInfo[index]["ContactType"]
+                                      ]["FileNumber"]
+                                    }
+                                    label={
+                                      row["ContactType"] === 7
+                                        ? "Policy Number"
+                                        : "File Number"
+                                    }
+                                    //autoFocus
+                                    type="default"
+                                    name={
+                                      row["ContactType"] === 7
+                                        ? "Policy Number"
+                                        : "File Number"
+                                    }
+                                    value={cardInfo[index]["FileNumber"]}
+                                    placeholder={
+                                      row["ContactType"] === 7
+                                        ? "Policy Number"
+                                        : "File Number"
+                                    }
+                                    onChangeText={(Text) => {
+                                      handleCardChange(
+                                        index,
+                                        "FileNumber",
+                                        Text
+                                      );
+                                    }}
+                                  />
+                                </View>
+                              )}
+                            </View>
+                          </>
+                        )}
+                      </>
+                    )}
+                    {[2, 7, 48].includes(row["ContactType"]) ? (
+                      <View style={styles["card-footer"]}>
+                        {row["AgentID"] ? (
+                          <TouchableOpacity
+                            onPress={(e) => {
+                              fnPrintVendor(row["ContactType"]);
+                            }}
+                            style={[
+                              [styles.buttonContainer],
+                              { alignSelf: "center", padding: 5 },
+                            ]}
+                          >
+                            <CustomText style={[styles["btn"]]}>
+                              {`Print ${row.ContactTypename} Request`}
+                            </CustomText>
+                          </TouchableOpacity>
+                        ) : (
+                          <View></View>
+                        )}
+                        {[2, 48].includes(row["ContactType"]) && (
+                          <View
+                            style={[
+                              styles["card-item"],
+                              { flexDirection: "row", alignItems: "center" },
+                            ]}
+                          >
+                            <CustomText
+                              bold={true}
+                              style={[
+                                styles["card-lablebold"],
+                                { color: "white" },
+                              ]}
+                            >
+                              {`Same for${
+                                row["ContactType"] === 2
+                                  ? ` Escrow`
+                                  : ` Escrow Seller`
+                              }:`}
+                            </CustomText>
+                            <Checkbox
+                              style={styles["card-checkbox"]}
+                              value={copyAgent[row["ContactType"]]}
+                              color={
+                                copyAgent[row["ContactType"]] ? "#5e9cd3" : ""
+                              }
+                              onValueChange={(e) => {
+                                handleChangeCheckBox(
+                                  row["ContactType"],
+                                  e,
+                                  index,
+                                  "Vendor"
+                                );
+                              }}
+                            ></Checkbox>
+                          </View>
+                        )}
+                      </View>
+                    ) : (
+                      <View style={styles["card-footer"]}>
+                        {[43, 50, 51].includes(row["ContactType"]) ? (
+                          <>
+                            <View></View> {/*Dummy View for spacing alignment*/}
+                            <View
+                              style={[
+                                styles["card-item"],
+                                { flexDirection: "row", alignItems: "center" },
+                              ]}
+                            >
+                              <CustomText
+                                bold={true}
+                                style={[
+                                  styles["card-lablebold"],
+                                  { color: "white" },
+                                ]}
+                              >
+                                {row["ContactType"] == 43
+                                  ? "Does Not Apply"
+                                  : "No Realtor"}
+                              </CustomText>
+                              <Checkbox
+                                style={styles["card-checkbox"]}
+                                value={copyAgent[row["ContactType"]]}
+                                color={
+                                  copyAgent[row["ContactType"]] ? "#5e9cd3" : ""
+                                }
+                                onValueChange={(e) => {
+                                  handleChangeCheckBox(
+                                    row["ContactType"],
+                                    e,
+                                    index,
+                                    row["ContactType"] == 43
+                                      ? "DoesNotApply"
+                                      : "Realtor"
+                                  );
+                                }}
+                              ></Checkbox>
+                            </View>
+                          </>
+                        ) : (
+                          <View style={{ padding: 13 }}></View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                </View>
+              ))}
+              <View style={{ display: "none" }}>
+                <Button
+                  onPress={handleParentWindowSave}
+                  title={"Parent Save"}
+                />
+              </View>
+            </View>
+            {/* </TouchableWithoutFeedback> */}
+            {/* Grids Section */}
+            {handleParamFromURL(document.location.href, "ViewType") == "1" && (
+              <View style={styles["table-container"]}>
+                <ScrollView>
+                  <Table
+                    borderStyle={{ borderWidth: 1, borderColor: "transparent" }}
+                  >
+                    <Row
+                      data={tabelProps.tableHead}
+                      widthArr={[120, 130, 90, 110]}
+                      style={[styles["table-head"], { color: "#999" }]}
+                      textStyle={[styles["table-text"], { color: "#fff" }]}
+                      // textStyle={[styles["table-text"], { color: "#fff" }]}
+                    />
+
+                    {tabelProps.tableData.map((rowData, index) => (
+                      <>
+                        {([9, 19].includes(rowData["ContactType"]) &&
+                          queryString["IsEditRights"] == 1) ||
+                        ![9, 19].includes(rowData["ContactType"])
+                          ? rowData["ContactType"] == 3 // Appraiser
+                            ? tabelProps.AppraiserRows.map((rowData, i) => {
+                                let Rows = [];
+                                if (
+                                  i === 0 &&
+                                  queryString["SignOffLevel"] > 4
+                                ) {
+                                  rowData["IsButton"] = true;
+                                  Rows.push(CustomTableRow(rowData, -1));
+                                }
+                                if (
+                                  tabelProps.AppraiserRows[0]["AgentID"] !=
+                                    -1 &&
+                                  tabelProps.AppraiserRows[0]["AgentID"] != 0
+                                )
+                                  Rows.push(CustomTableRow(rowData, i));
+
+                                return (
+                                  <View
+                                    style={{
+                                      zIndex: i > 0 ? -11 : -1,
+                                      borderColor: "black",
+                                      borderWidth: 2,
+                                      borderTopWidth: i !== 0 ? 0 : 2,
+                                      borderBottomWidth:
+                                        i ===
+                                        tabelProps.AppraiserRows.length - 1
+                                          ? 2
+                                          : 0,
+                                    }}
+                                  >
+                                    {Rows}
+                                  </View>
+                                );
+                                //return Rows;
+                              })
+                            : rowData["ContactType"] == 999 // Non-Borrower
+                            ? tabelProps.NonBorroweRows.map((rowData, i) => {
+                                let Rows = [],
+                                  Agent =
+                                    tabelProps.NonBorroweRows[0]["AgentID"];
+                                if (i === 0) {
+                                  rowData["IsButton"] = true;
+                                  Rows.push(CustomTableRow(rowData, -1));
+                                }
+                                if (
+                                  i != 0 &&
+                                  Agent !== 0 &&
+                                  tabelProps.NonBorroweRows.length != 1
+                                )
+                                  Rows.push(CustomTableRow(rowData, i));
+                                return (
+                                  <View
+                                    style={{
+                                      zIndex: -1,
+                                      borderColor: "black",
+                                      borderWidth: 2,
+                                      marginTop: 2,
+
+                                      borderTopWidth: i !== 0 ? 0 : 2,
+                                      borderBottomWidth:
+                                        i ===
+                                        tabelProps.NonBorroweRows.length - 1
+                                          ? 2
+                                          : 0,
+                                    }}
+                                  >
+                                    {Rows}
+                                  </View>
+                                );
+                              })
+                            : rowData["ContactType"] == 52 // Notary
+                            ? CustomTableRow(
+                                rowData,
+                                !rowData["AgentID"] ? -1 : index
+                              )
+                            : rowData["ContactType"] == 56 && // Condo PUD
+                              rowData["DisplaySeller"] == 1
+                            ? CustomTableRow(
+                                rowData,
+                                !rowData["AgentID"] ? -1 : index
+                              )
+                            : rowData["ContactType"] !== 56 && // Other categories
+                              CustomTableRow(rowData, index)
+                          : null}
+                      </>
+                    ))}
+                  </Table>
+                </ScrollView>
+              </View>
+            )}
+            {/* Modal Section */}
+            <View style={{ alignItems: "center" }}>
+              {/* Seller Modal */}
+              <Modal
+                isVisible={isModalVisible.Seller}
+                onBackdropPress={() => {
+                  setModalVisible({ isModalVisible, Seller: false });
+                  fnShowAddNew(0);
+                  setInput({ 0: "" });
+                }}
+                style={{
+                  backgroundColor: "#fff",
+                  //maxWidth: Platform.OS === "web" ? "1000px" : null,
+                  //minWidth: Platform.OS === "web" ? "500px" : null,
+                  margin: 45,
+                  flex: null,
+                  alignSelf: Platform.OS === "web" ? "center" : null,
+                }}
+              >
+                <View>
+                  <View style={styles["modal-header"]}>
+                    <CustomText style={styles["modal-header-title"]}>
+                      {"Seller List"}
+                    </CustomText>
+                    <AntDesign
+                      name="close"
+                      style={styles["modal-close"]}
+                      strokeWidth={30}
+                      size={24}
+                      color={"black"}
+                      onPress={(e) => {
+                        toggleModal("Seller");
+                        fnShowAddNew(0);
+                      }}
+                    />
+                  </View>
+                  <View style={styles["modal-container"]}>
+                    <View
+                      style={[
+                        Platform.OS !== "web" && {
+                          flexDirection: "row",
+                        },
+                        { width: 430 },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles["card-input"],
+                          // styles["card-item"],
+                          Platform.OS !== "web" && {
+                            flexDirection: "row",
+                          },
+                          { width: 420 },
+                        ]}
+                      >
+                        <InputField
+                          value={AutoCinput["0"] || ""}
+                          label="Add Company or Seller Name, Email or Cell Phone"
+                          type="default"
+                          name="EmailorCellPhone"
+                          onChangeText={(text) => {
+                            handleCompanySearch(text, "0", "S");
+                          }}
+                          onKeyPress={(event) => {
+                            setSelectedItemIndex(-1);
+                            fnFocusInput(event);
+                          }}
+                          onBlur={(e) => {
+                            fnShowAddNew(0, "Hide");
+                          }}
+                          onFocus={(e) => {
+                            fnShowAddNew(0, "Show");
+                          }}
+                          placeholder="Search for Company or Seller Name, Email or Cell Phone"
+                        />
+                        <CustomText
+                          style={{
+                            position: "absolute",
+                            right: 0,
+                            top: 35,
+                          }}
+                        >
+                          {otherProps["0"] && (
+                            <View style={{ right: 30 }}>
+                              <ArrowSpinner />
+                            </View>
+                          )}
+                        </CustomText>
+                        {AutoCompdata["0"] && isModalVisible.Seller && (
+                          <FlatList
+                            style={styles["search-drop-down"]}
+                            data={AutoCompdata["0"]}
+                            showsVerticalScrollIndicator={true}
+                            removeClippedSubviews={true}
+                            ref={flatListRef}
+                            renderItem={({ item, index: i }) => (
+                              <Pressable
+                                // ref={btnAddNewRef}
+                                ref={(ref) => setListRef(i, ref)}
+                                style={({ pressed }) => [
+                                  {
+                                    opacity: pressed ? 0.5 : 1,
+                                    borderWidth: 1,
+                                    borderColor: "silver",
+                                    borderTopWidth: 0,
+                                    backgroundColor:
+                                      i === selectedItemIndex
+                                        ? "yellow"
+                                        : i % 2 == 0
+                                        ? "#d9ecff"
+                                        : "#fff",
+                                  },
+                                  isHovered && styles["HoverBgColor"],
+                                ]}
+                                onPress={(e) => {
+                                  handleOnkeyPressFlatlist(
+                                    AutoCompdata["0"][selectedItemIndex],
+                                    1
+                                  );
+                                }}
+                              >
+                                <View>{handleTypeaheadOption(item, 1)}</View>
+                              </Pressable>
+                            )}
+                            keyExtractor={(item) => item.id}
+                          />
+                        )}
+                      </View>
+                    </View>
+                    <Table
+                      borderStyle={{
+                        borderWidth: 1,
+                        borderColor: "transparent",
+                        maxWidth: 430,
+                      }}
+                      style={{ paddingTop: 10, zIndex: -1 }}
+                    >
+                      {/* Header */}
+                      <View
+                        style={[
+                          styles["table-head"],
+                          { color: "#fff", flexDirection: "row" },
+                        ]}
+                      >
+                        <Cell
+                          // style={[styles['Grid-Cell-Border']]}
+                          data={[
+                            <View
+                              style={{
+                                fontSize: 11,
+                                color: "#fff",
+                                marginBottom: 5,
+                              }}
+                            >
+                              <View>{"First Name"}</View>
+                              <View style={{ marginTop: 5 }}>
+                                {"Last Name"}
+                              </View>
+                            </View>,
+                          ]}
+                          style={[styles["Grid-Cell-Border"], { width: 76 }]}
+                        ></Cell>
+                        <Cell
+                          style={[styles["Grid-Cell-Border"], { width: 205 }]}
+                          data={[
+                            <View style={{ fontSize: 11, color: "#fff" }}>
+                              <View>{"Entity Name"}</View>
+                            </View>,
+                          ]}
+                        ></Cell>
+                        <Cell
+                          data={[
+                            <View style={{ fontSize: 11, color: "#fff" }}>
+                              <View>{"Cell Phone"}</View>
+                              <View style={{ marginTop: 5 }}>{"Email"}</View>
+                            </View>,
+                          ]}
+                          style={[{ width: 100 }]}
+                        ></Cell>
+                        {/* <Cell data={[]} style={{ width: 70 }}></Cell> */}
+                        {/* <Cell data={"T1"}></Cell>
+                      <Cell data={"T1"}></Cell>
+                      <Cell data={"T1"}></Cell> */}
+                      </View>
+
+                      {sellerInfo.RowData?.map((rowData, index) => (
+                        <>
+                          {/* {sellerTabelProps["EditRow"][index] !== true && ( */}
+                          <TableWrapper
+                            key={index - 1}
+                            style={[
+                              styles["table-row"],
+                              {
+                                backgroundColor:
+                                  index % 2 == 0 ? "#deebf7" : "#fff",
+                                maxWidth: 430,
+                              },
+                              sellerInfo.RowData.length - 1 === index &&
+                                styles["table-row-bottom-border"],
+                              styles["table-row-LeftRight-border"],
+                            ]}
+                          >
+                            {sellerTabelProps["EditRow"][index] !== true ? (
+                              <>
+                                <Cell
+                                  width={76}
+                                  key={"cell1"}
+                                  style={[
+                                    { display: "block" },
+                                    styles["Grid-Cell-Border"],
+                                  ]}
+                                  data={[
+                                    <View>
+                                      <View>
+                                        <CustomText
+                                          style={[
+                                            { fontSize: 11, color: "#4b545d" },
+                                          ]}
+                                        >
+                                          {rowData.FirstName}
+                                        </CustomText>
+                                      </View>
+                                      <View>
+                                        <CustomText
+                                          style={{
+                                            fontSize: 11,
+                                            color: "#4b545d",
+                                            marginTop: 5,
+                                          }}
+                                        >
+                                          {rowData.LastName}
+                                        </CustomText>
+                                      </View>
+                                    </View>,
+                                  ]}
+                                />
+                                {/* <Cell
+                                width={74}
+                                key={"cell1"}
+                                data={[
+                                  <CustomText
+                                    style={{ fontSize: 11, color: "#4b545d" }}
+                                  >
+                                    {rowData.LastName}
+                                  </CustomText>,
+                                ]}
+                              /> */}
+                                <Cell
+                                  width={205}
+                                  key={"cell2"}
+                                  style={[
+                                    { display: "block" },
+                                    styles["Grid-Cell-Border"],
+                                  ]}
+                                  data={[
+                                    <CustomText
+                                      style={{ fontSize: 11, color: "#4b545d" }}
+                                    >
+                                      {rowData.Companyname}
+                                    </CustomText>,
+                                  ]}
+                                />
+
+                                <Cell
+                                  width={125}
+                                  key={"cell3"}
+                                  //style={[styles['Grid-Cell-Border']]}
+                                  data={[
+                                    <View>
+                                      <View style={{ width: 100 }}>
+                                        <CustomText
+                                          style={{
+                                            fontSize: 11,
+                                            color: "#4b545d",
+                                          }}
+                                        >
+                                          {rowData.Phone}
+                                        </CustomText>
+                                        <CustomText
+                                          style={{
+                                            fontSize: 11,
+                                            color: "#4b545d",
+                                            marginTop: 5,
+                                          }}
+                                        >
+                                          {rowData.AgentEmail}
+                                        </CustomText>
+                                      </View>
+                                      <View
+                                        style={{
+                                          paddingTop: 5,
+                                          paddingBottom: 5,
+                                          flexDirection: "row",
+                                        }}
+                                      >
+                                        <TouchableOpacity
+                                          style={[
+                                            [styles.buttonContainer],
+                                            { alignSelf: "center" },
+                                          ]}
+                                          onPress={(e) => {
+                                            setSellerTabelProps({
+                                              ...sellerTabelProps,
+                                              EditRow: {
+                                                ...sellerTabelProps["EditRow"],
+                                                [index]: true,
+                                              },
+                                            });
+                                          }}
+                                        >
+                                          <CustomText
+                                            style={[
+                                              styles["btn"],
+                                              {
+                                                fontSize: 10,
+                                                minWidth: 36,
+                                                maxWidth: 36,
+                                              },
+                                            ]}
+                                          >
+                                            {"Edit"}
+                                          </CustomText>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                          style={[
+                                            [styles.buttonContainer],
+                                            { alignSelf: "center" },
+                                          ]}
+                                          onPress={(e) => {
+                                            handleRemoveSellerOrAgent(
+                                              rowData,
+                                              index
+                                            );
+                                          }}
+                                        >
+                                          <CustomText
+                                            style={[
+                                              styles["btn"],
+                                              { fontSize: 10 },
+                                            ]}
+                                          >
+                                            {"Remove"}
+                                          </CustomText>
+                                        </TouchableOpacity>
+                                      </View>
+                                    </View>,
+                                  ]}
+                                />
+                                {/* <Cell
+                                key={"cell4"}
+                                width={70}
+                                data={[
+                                  
+                                ]}
+                              /> */}
+                              </>
+                            ) : (
+                              <>
+                                <View style={{ width: "100%" }}>
+                                  <View
+                                    style={[
+                                      styles["card-body"],
+                                      { padding: 0 },
+                                    ]}
+                                  >
+                                    <View style={styles["card-input"]}>
+                                      <InputField
+                                        autoFocus
+                                        type="default"
+                                        value={
+                                          sellerTabelProps["ModifiedJson"][
+                                            index
+                                          ].FirstName
+                                        }
+                                        label="First Name"
+                                        placeholder="First Name"
+                                        // style={[
+                                        //   styles["grid-input"],
+                                        //   { outline: "none" },
+                                        // ]}
+                                        onChangeText={(Text) => {
+                                          handleGridChange(
+                                            index,
+                                            "FirstName",
+                                            Text
+                                          );
+                                        }}
+                                      />
+                                    </View>
+                                    <View style={styles["card-input"]}>
+                                      <InputField
+                                        //autoFocus
+                                        type="default"
+                                        label="Last Name"
+                                        value={
+                                          sellerTabelProps["ModifiedJson"][
+                                            index
+                                          ].LastName
+                                        }
+                                        placeholder="Last Name"
+                                        // style={[
+                                        //   styles["grid-input"],
+                                        //   { outline: "none", display: "block" },
+                                        // ]}
+                                        onChangeText={(Text) => {
+                                          handleGridChange(
+                                            index,
+                                            "LastName",
+                                            Text
+                                          );
+                                        }}
+                                      />
+                                    </View>
+                                  </View>
+
+                                  <View
+                                    style={[
+                                      styles["card-input"],
+                                      { width: "100%", paddingTop: 20 },
+                                    ]}
+                                  >
+                                    <InputField
+                                      //autoFocus
+                                      type="default"
+                                      label="Entity Name"
+                                      value={
+                                        sellerTabelProps["ModifiedJson"][index]
+                                          .Companyname
+                                      }
+                                      placeholder="Entity Name"
+                                      onChangeText={(Text) => {
+                                        handleGridChange(
+                                          index,
+                                          "Companyname",
+                                          Text
+                                        );
+                                      }}
+                                    />
+                                  </View>
+                                  <View
+                                    style={{
+                                      padding: 0,
+
+                                      flexDirection: "row",
+                                    }}
+                                  >
+                                    <View
+                                      style={[
+                                        styles["card-input"],
+                                        { width: "85%", paddingTop: 5 },
+                                      ]}
+                                    >
+                                      <View
+                                        style={{
+                                          padding: 0,
+                                          // paddingTop: 5,
+                                          paddingBottom: 5,
+                                          flexDirection: "row",
+                                        }}
+                                      >
+                                        <View
+                                          style={[
+                                            styles["card-input"],
+                                            { width: "35%", marginRight: 10 },
+                                          ]}
+                                        >
+                                          <InputField
+                                            //autoFocus
+                                            type="default"
+                                            label="Cell Phone"
+                                            value={
+                                              sellerTabelProps["ModifiedJson"][
+                                                index
+                                              ].Phone
+                                            }
+                                            placeholder="Cell Phone"
+                                            onChangeText={(Text) => {
+                                              handleGridChange(
+                                                index,
+                                                "Phone",
+                                                Text
+                                              );
+                                            }}
+                                            onBlur={(e) => {
+                                              let number = FormatPhoneLogin(
+                                                sellerTabelProps[
+                                                  "ModifiedJson"
+                                                ][index].Phone
+                                              );
+                                              handleGridChange(
+                                                index,
+                                                "Phone",
+                                                number
+                                              );
+                                            }}
+                                          />
+                                        </View>
+                                        <View
+                                          style={[
+                                            styles["card-input"],
+                                            { width: "62%" },
+                                          ]}
+                                        >
+                                          <InputField
+                                            //autoFocus
+                                            type="default"
+                                            value={
+                                              sellerTabelProps["ModifiedJson"][
+                                                index
+                                              ].AgentEmail
+                                            }
+                                            label="Email"
+                                            placeholder="Email"
+                                            onChangeText={(Text) => {
+                                              handleGridChange(
+                                                index,
+                                                "AgentEmail",
+                                                Text
+                                              );
+                                            }}
+                                          />
+                                        </View>
+                                      </View>
+                                    </View>
+                                    <View
+                                      style={[
+                                        styles["card-input"],
+                                        {
+                                          width: "19%",
+                                          justifyContent: "center",
+                                        },
+                                      ]}
+                                    >
+                                      {sellerTabelProps["EditRow"][index] ===
+                                        true && (
+                                        <View>
+                                          <TouchableOpacity
+                                            style={[
+                                              [styles.buttonContainer],
+                                              {
+                                                alignSelf: "center",
+                                                padding: 5,
+                                              },
+                                            ]}
+                                            onPress={(e) => {
+                                              setSellerTabelProps({
+                                                ...sellerTabelProps,
+                                                EditRow: {
+                                                  ...sellerTabelProps[
+                                                    "EditRow"
+                                                  ],
+                                                  [index]: false,
+                                                },
+                                              });
+                                              handleVendorSave(index, "Seller");
+                                            }}
+                                          >
+                                            <CustomText
+                                              style={[
+                                                styles["btn"],
+                                                {
+                                                  fontSize: 10,
+                                                  minWidth: 45,
+                                                  maxWidth: 45,
+                                                },
+                                              ]}
+                                            >
+                                              {"Save"}
+                                            </CustomText>
+                                          </TouchableOpacity>
+                                          <TouchableOpacity
+                                            style={[
+                                              [styles.buttonContainer],
+                                              {
+                                                alignSelf: "center",
+                                                padding: 5,
+                                              },
+                                            ]}
+                                            onPress={(e) => {
+                                              setSellerTabelProps({
+                                                ...sellerTabelProps,
+                                                EditRow: {
+                                                  ...sellerTabelProps[
+                                                    "EditRow"
+                                                  ],
+                                                  [index]: false,
+                                                },
+                                              });
+                                            }}
+                                          >
+                                            <CustomText
+                                              style={[
+                                                styles["btn"],
+                                                {
+                                                  fontSize: 10,
+                                                  minWidth: 45,
+                                                  maxWidth: 45,
+                                                },
+                                              ]}
+                                            >
+                                              {"Cancel"}
+                                            </CustomText>
+                                          </TouchableOpacity>
+                                        </View>
+                                      )}
+                                    </View>
+                                  </View>
+                                </View>
+                              </>
+                            )}
+
+                            {/* Buttons */}
+                            {/* {sellerTabelProps["EditRow"][index] !== true ? (
+                            <>
+                              <Cell
+                               
+                                style={{ alignSelf: "center" }}
+                                data={[
+                                  <View>
+                                    <TouchableOpacity
+                                      style={[
+                                        [styles.buttonContainer],
+                                        { alignSelf: "center" },
+                                      ]}
+                                      onPress={(e) => {
+                                        setSellerTabelProps({
+                                          ...sellerTabelProps,
+                                          EditRow: {
+                                            ...sellerTabelProps["EditRow"],
+                                            [index]: true,
+                                          },
+                                        });
+                                      }}
+                                    >
+                                      <CustomText
+                                        style={[
+                                          styles["btn"],
+                                          {
+                                            fontSize: 10,
+                                            minWidth: 36,
+                                            maxWidth: 36,
+                                          },
+                                        ]}
+                                      >
+                                        {"Edit"}
+                                      </CustomText>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                      style={[
+                                        [styles.buttonContainer],
+                                        { alignSelf: "center" },
+                                      ]}
+                                      onPress={(e) => {
+                                        handleRemoveSellerOrAgent(rowData);
+                                      }}
+                                    >
+                                      <CustomText
+                                        style={[
+                                          styles["btn"],
+                                          { fontSize: 10 },
+                                        ]}
+                                      >
+                                        {"Remove"}
+                                      </CustomText>
+                                    </TouchableOpacity>
+                                  </View>,
+                                ]}
+                              />
+                              
+                            </>
+                          ) : (
+                            <>
+                              <Cell
+                                style={{ alignSelf: "center" }}
+                                data={null}
+                              />
+                             
+                            </>
+                          )} */}
+                          </TableWrapper>
+                          {/* )} */}
+                          {/* {sellerTabelProps["EditRow"][index] == true && (
+                        <TableWrapper>
+                          <Cell width={200} key={"cell1"}>
+                            <View style={{ maxWidth: "100%" }}>
+                              <InputField
+                                // autoFocus
+                                type="default"
+                                value={
+                                  sellerTabelProps["ModifiedJson"][index]
+                                    .FirstName
+                                }
+                                label="Agent First Name"
+                                placeholder="Agent First Name"
+                                style={[
+                                  styles["grid-input"],
+                                  { outline: "none" },
+                                ]}
+                                onChangeText={(Text) => {
+                                  handleGridChange(index, "FirstName", Text);
+                                }}
+                              />
+                            </View>
+                          </Cell>
+                          <Cell width={200} key={"cell1"}>
+                            <View style={{ maxWidth: "100%" }}>
+                              <InputField
+                                // autoFocus
+                                type="default"
+                                value={
+                                  sellerTabelProps["ModifiedJson"][index]
+                                    .FirstName
+                                }
+                                label="Agent First Name"
+                                placeholder="Agent First Name"
+                                style={[
+                                  styles["grid-input"],
+                                  { outline: "none" },
+                                ]}
+                                onChangeText={(Text) => {
+                                  handleGridChange(index, "FirstName", Text);
+                                }}
+                              />
+                            </View>
+                          </Cell>
+                          <Cell width={200} key={"cell1"}>
+                            <View style={{ maxWidth: "100%" }}>
+                              <InputField
+                                // autoFocus
+                                type="default"
+                                value={
+                                  sellerTabelProps["ModifiedJson"][index]
+                                    .FirstName
+                                }
+                                label="Agent First Name"
+                                placeholder="Agent First Name"
+                                style={[
+                                  styles["grid-input"],
+                                  { outline: "none" },
+                                ]}
+                                onChangeText={(Text) => {
+                                  handleGridChange(index, "FirstName", Text);
+                                }}
+                              />
+                            </View>
+                          </Cell>
+                        </TableWrapper>
+                      )} */}
+                        </>
+                      ))}
+                      {/* {sellerInfo.RowData.length == 0 &&
+                  <TableWrapper
+                    key={ - 1}
+                    style={[
+                      styles["table-row"],
+                      {
+                        backgroundColor: "#fff",
+                      },
+                    ]}
+                  >
+                    <Cell
+                      width={500}
+                      key={"cell1"}
+                      data={[
+                        <CustomText style={{ fontSize: 12, color: "#4b545d" }}>
+                          {"No records found"}
+                        </CustomText>,
+                      ]}
+                    />
+                  </TableWrapper>
+} */}
+                    </Table>
+                  </View>
+                  <View style={[styles["modal-footer"], { zIndex: -1 }]}>
+                    <TouchableOpacity
+                      style={[
+                        [styles.buttonContainer],
+                        { alignSelf: "center", padding: 5 },
+                      ]}
+                      onPress={() => {
+                        setModalVisible({ isModalVisible, Seller: false });
+                      }}
+                    >
+                      <CustomText style={[styles["btn"]]}>{"Close"}</CustomText>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </Modal>
+              {/* IsSame Confirmation Modal */}
+              <Modal
+                isVisible={isModalVisible.Confirmation}
+                onBackdropPress={() =>
+                  setModalVisible({ isModalVisible, Confirmation: false })
+                }
+                style={{
+                  backgroundColor: "#fff",
+                  maxWidth: Platform.OS === "web" ? "1000px" : null,
+                  flex: null,
+                  alignSelf: Platform.OS === "web" ? "center" : null,
+                }}
+              >
+                <View>
+                  <View style={styles["modal-header"]}>
+                    <CustomText style={styles["modal-header-title"]}>
+                      {"Confirmation"}
+                    </CustomText>
+                    <AntDesign
+                      name="close"
+                      style={styles["modal-close"]}
+                      strokeWidth={30}
+                      size={24}
+                      color={"black"}
+                      onPress={(e) => {
+                        toggleModal("Confirmation");
+                      }}
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles["modal-container"],
+                      { minWidth: 350, marginLeft: 20 },
+                    ]}
+                  >
+                    <CustomText>
+                      Would you like to use the same
+                      {isModalVisible.AgentType == 2 &&
+                        `Title and Escrow Agent`}{" "}
+                      {isModalVisible.AgentType == 48 &&
+                        `Title Seller and Escrow Seller Agent`}
+                      ?
+                    </CustomText>
+                  </View>
+                  <View style={styles["modal-footer"]}>
+                    <TouchableOpacity
+                      style={[
+                        [styles.buttonContainer],
+                        { alignSelf: "center", padding: 5 },
+                      ]}
+                      onPress={() => {
+                        // handleIfSameTitle("", "", 0);
+                      }}
+                    >
+                      <CustomText style={[styles["btn"]]}>{" No "}</CustomText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        [styles.buttonContainer],
+                        { alignSelf: "center", padding: 5 },
+                      ]}
+                      onPress={() => {
+                        //handleIfSameTitle("", "", 1);
+                      }}
+                    >
+                      <CustomText style={[styles["btn"]]}>{"Yes"}</CustomText>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </Modal>
+              {/* Remove Confirmation Modal */}
+              <Modal
+                isVisible={isModalVisible.Remove}
+                onBackdropPress={() =>
+                  setModalVisible({ isModalVisible, Remove: false })
+                }
+                style={{
+                  backgroundColor: "#fff",
+                  maxWidth: Platform.OS === "web" ? "1000px" : null,
+                  flex: null,
+                  alignSelf: Platform.OS === "web" ? "center" : null,
+                }}
+              >
+                <View>
+                  <View style={styles["modal-header"]}>
+                    <CustomText style={styles["modal-header-title"]}>
+                      {"Confirmation"}
+                    </CustomText>
+                    <AntDesign
+                      name="close"
+                      style={styles["modal-close"]}
+                      strokeWidth={30}
+                      size={24}
+                      color={"black"}
+                      onPress={(e) => {
+                        toggleModal("Remove");
+                      }}
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles["modal-container"],
+                      { minWidth: 350, marginLeft: 20 },
+                    ]}
+                  >
+                    <CustomText>
+                      {isModalVisible.Data && (
+                        <>
+                          Are you sure want to Remove{" "}
+                          <CustomText bold={true}>
+                            {isModalVisible.Data.ContactTypename}:{" "}
+                            {isModalVisible.Data.Companyname}
+                          </CustomText>{" "}
+                          from the Loan{" "}
+                          <CustomText bold={true}>
+                            {"("}
+                            {isModalVisible.Data.Loanid}
+                            {")"}
+                          </CustomText>
+                        </>
+                      )}
+                    </CustomText>
+                  </View>
+                  <View style={styles["modal-footer"]}>
+                    <TouchableOpacity
+                      style={[
+                        [styles.buttonContainer],
+                        { alignSelf: "center", padding: 5 },
+                      ]}
+                      onPress={() => {
+                        setModalVisible({ isModalVisible, Remove: false });
+                      }}
+                    >
+                      <CustomText style={[styles["btn"]]}>{" No "}</CustomText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        [styles.buttonContainer],
+                        { alignSelf: "center", padding: 5 },
+                      ]}
+                      onPress={() => {
+                        handleRemoveSellerOrAgent(isModalVisible.Data);
+                      }}
+                    >
+                      <CustomText style={[styles["btn"]]}>{"Yes"}</CustomText>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </Modal>
+            </View>
+          </>
+        )}
+      </View>
+    );
+  };
+  const HazardInsurance = () => {
+    return (
+      <View>
+        {result.length === 0 ? (
+          <CustomText style={styles["card-Loading"]}>Loading...</CustomText>
+        ) : (
+          <>
+            {/* Header Section */}
+            <View style={{ marginLeft: 10, marginBottom: 25 }}>
+              <View style={{ gap: 5 }}>
+                <CustomText bold={true}>Hazard Insurance.</CustomText>
+                <CustomText>
+                  Proof of hazard insurance is needed in order to close the
+                  loan. Click 'Get Quote' to get a quote from top carriers in
+                  your area.
+                </CustomText>
+              </View>
+
               <View
-                key={index}
                 style={[
-                  styles["card-container"],
-                  (index === 1 && row["DisplaySeller"] == 0) ||
-                  (index === 5 && row["IsEmpty"])
-                    ? styles["card-hide"]
-                    : "",
-                  (index === 1 && row["IsEmpty"] && windowWidth < 1000) ||
-                  (index === 5 && row["IsEmpty"] && windowWidth < 1000)
-                    ? { display: "none" }
-                    : "",
-                  copyAgent[row["ContactType"]] &&
-                    [43, 50, 51].includes(row["ContactType"]) &&
-                    styles["card-disable"], // This is for disabling the card when no realtor is checked
-                  cardValidation[row["ContactType"]] &&
-                    styles["card-validation"],
+                  styles["btn"],
+                  {
+                    alignSelf: "baseline",
+                    marginTop: 25,
+                    marginBottom: 30,
+                    marginLeft: 10,
+                  },
                 ]}
               >
-                <View style={styles["card-child"]}>
-                  <View style={styles["card-header"]}>
-                    <CustomText style={styles["card-Title"]}>
-                      {row.ContactTypename}
-                    </CustomText>
-                    {/* To show the header buttons based on the vendor "0" is for Seller */}
-                    {row["ContactType"] != 0 ? (
+                <TouchableOpacity
+                  onPress={(e) => {}}
+                  style={[styles.buttonContainer]}
+                >
+                  <CustomText style={[styles["btn"]]}>{"Get Quote"}</CustomText>
+                </TouchableOpacity>
+              </View>
+              <View style={{ gap: 5 }}>
+                <CustomText bold={true}>
+                  Hazard Insurance Information.
+                </CustomText>
+                <CustomText>
+                  Please confirm or update your insurance agent information
+                  below. To change an agent that is already identified, simply
+                  click the Red X to Remove the agent. Then search () or add ()
+                  a different insurance agent using the search area below.
+                </CustomText>
+              </View>
+            </View>
+            {/* Cards Section */}
+
+            <View
+              style={[
+                styles["card-parent"],
+                windowWidth < 1000 && styles["card-small"],
+              ]}
+            >
+              {result?.map((row, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles["card-container"],
+
+                    cardValidation[row["ContactType"]] &&
+                      (!copyAgent[row["ContactType"]] ||
+                        [2, 48].includes(row["ContactType"])) &&
+                      styles["card-validation"],
+                  ]}
+                >
+                  <View style={styles["card-child"]}>
+                    <View style={styles["card-header"]}>
+                      <CustomText style={styles["card-Title"]}>
+                        {row.ContactTypename}
+                      </CustomText>
+
                       <>
                         {!validation[row["ContactType"]] && (
                           <>
@@ -2530,10 +5914,10 @@ export default function VendorContacts() {
                                               ...otherProps,
                                               ["remove-" + index]: false,
                                             });
-                                            setCopyAgent({
-                                              ...copyAgent,
-                                              [row["ContactType"]]: false,
-                                            });
+                                            // setCopyAgent({
+                                            //   ...copyAgent,
+                                            //   [row["ContactType"]]: false,
+                                            // });
                                           }}
                                           style={[
                                             [styles.buttonContainer],
@@ -2586,7 +5970,7 @@ export default function VendorContacts() {
                               <TouchableOpacity
                                 style={[styles.buttonContainer]}
                                 onPress={(e) => {
-                                  handleVedorSave(index);
+                                  handleVendorSave(index);
                                 }}
                               >
                                 <CustomText style={styles["btn"]}>
@@ -2607,376 +5991,8 @@ export default function VendorContacts() {
                           ) : null}
                         </>
                       </>
-                    ) : (
-                      <>
-                        {sellerInfo["RowData"].length === 1 &&
-                        sellerInfo["RowData"][0].AgentID == 0 ? null : (
-                          <View style={styles["btn"]}>
-                            <TouchableOpacity
-                              onPress={(e) => {
-                                toggleModal("Seller");
-                                setData({});
-                                setInput({});
-                                setSellerTabelProps({
-                                  ...sellerTabelProps,
-                                  EditRow: [],
-                                });
-                              }}
-                              style={[styles.buttonContainer]}
-                            >
-                              <CustomText style={styles["btn"]}>
-                                {"Edit"}
-                              </CustomText>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                      </>
-                    )}
-                  </View>
-                  {/* To show the body buttons based on the vendor "0" is for Seller */}
-                  {row["ContactType"] == 0 ? (
-                    <>
-                      <View
-                        style={[
-                          {
-                            minHeight: Platform.OS === "web" ? 250 : null,
-                          },
-                        ]}
-                      >
-                        {sellerInfo["RowData"].length > 3 && (
-                          <View style={{ alignSelf: "end", marginTop: 5 }}>
-                            <TouchableOpacity
-                              style={[styles.buttonContainer]}
-                              onPress={(e) => {
-                                toggleModal("Seller");
-                              }}
-                            >
-                              <CustomText style={styles["btn"]}>
-                                {"View Additional Sellers"}
-                              </CustomText>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                        <View
-                          style={[
-                            styles["card-body"],
-                            { gridTemplateColumns: "repeat(3, 1fr)" },
-                          ]}
-                        >
-                          {sellerInfo["RowData"].map((e, index) => (
-                            <>
-                              {index < 3 && (
-                                <View style={{ gap: 10 }}>
-                                  {e.AgentID == 0 &&
-                                  sellerInfo["RowData"].length === 1 ? (
-                                    <View
-                                      style={[
-                                        styles["card-input"],
-                                        // styles["card-item"],
-                                        Platform.OS !== "web" && {
-                                          flexDirection: "row",
-                                        },
-                                        { width: 430 },
-                                      ]}
-                                    >
-                                      <InputField
-                                        value={AutoCinput["0"] || ""}
-                                        label="Add Company or Seller Name, Email or Cell Phone"
-                                        type="default"
-                                        name="EmailorCellPhone"
-                                        onChangeText={(text) => {
-                                          handleCompanySearch(text, "0", "S");
-                                        }}
-                                        onKeyPress={(event) => {
-                                          setSelectedItemIndex(-1);
-                                          fnFocusInput(event);
-                                        }}
-                                        onBlur={(e) => {
-                                          fnShowAddNew(0, "Hide");
-                                        }}
-                                        onFocus={(e) => {
-                                          fnShowAddNew(0, "Show");
-                                        }}
-                                        placeholder="Search for Company or Seller Name, Email or Cell Phone"
-                                      />
-                                      <CustomText
-                                        style={{
-                                          position: "absolute",
-                                          right: 0,
-                                          top: 35,
-                                        }}
-                                      >
-                                        {otherProps[e["ContactType"]] && (
-                                          <View style={{ right: 30 }}>
-                                            <ArrowSpinner />
-                                          </View>
-                                        )}
-                                        {/* {!validation[e["ContactType"]] && (
-                                          <FontAwesome
-                                            name="close"
-                                            style={[
-                                              styles["modal-close"],
-                                              {
-                                                color: "red",
-                                                cursor: "pointer",
-                                                opacity: 0.8,
-                                                top: -2,
-                                              },
-                                            ]}
-                                            strokeWidth={30}
-                                            size={17}
-                                            color={"black"}
-                                            onPress={(event) => {
-                                              handleCloseEditCompany(e);
-                                            }}
-                                          />
-                                        )} */}
-                                      </CustomText>
-                                      {AutoCompdata[e["ContactType"]] &&
-                                        !isModalVisible.Seller && (
-                                          <FlatList
-                                            style={styles["search-drop-down"]}
-                                            data={
-                                              AutoCompdata[e["ContactType"]]
-                                            }
-                                            showsVerticalScrollIndicator={true}
-                                            removeClippedSubviews={true}
-                                            ref={flatListRef}
-                                            renderItem={({
-                                              item,
-                                              index: i,
-                                            }) => (
-                                              <Pressable
-                                                // ref={btnAddNewRef}
-                                                ref={(ref) =>
-                                                  setListRef(i, ref)
-                                                }
-                                                style={({ pressed }) => [
-                                                  {
-                                                    opacity: pressed ? 0.5 : 1,
-                                                    borderWidth: 1,
-                                                    borderColor: "silver",
-                                                    borderTopWidth: 0,
-                                                    backgroundColor:
-                                                      i === selectedItemIndex
-                                                        ? "yellow"
-                                                        : i % 2 == 0
-                                                        ? "#d9ecff"
-                                                        : "#fff",
-                                                  },
-                                                  isHovered &&
-                                                    styles["HoverBgColor"],
-                                                ]}
-                                                onPress={(event) => {
-                                                  handleOnkeyPressFlatlist(
-                                                    AutoCompdata[
-                                                      e["ContactType"]
-                                                    ][selectedItemIndex],
-                                                    1
-                                                  );
-                                                }}
-                                              >
-                                                <View>
-                                                  {handleTypeaheadOption(
-                                                    item,
-                                                    1
-                                                  )}
-                                                </View>
-                                              </Pressable>
-                                            )}
-                                            keyExtractor={(item) => item.id}
-                                          />
-                                        )}
-                                    </View>
-                                  ) : (
-                                    <>
-                                      <View>
-                                        <View
-                                          style={{
-                                            maxWidth: 250,
-                                            marginRight: 5,
-                                          }}
-                                        >
-                                          <CustomText
-                                            onPress={(e) => {
-                                              toggleModal("Seller");
-                                              setData({});
-                                              setInput({});
-                                            }}
-                                            style={
-                                              styles["card-text-underline"]
-                                            }
-                                            bold={true}
-                                          >
-                                            {`${e.FirstName} ${e.LastName}`}
-                                          </CustomText>
-                                        </View>
-                                      </View>
-                                      <View>
-                                        <CustomText>{e.Companyname}</CustomText>
-                                      </View>
-                                      <View>
-                                        <CustomText
-                                        // onPress={() => {
-                                        //   let subject = "",
-                                        //     body = "";
-                                        //   const emailUrl = `mailto:${
-                                        //     e.AgentEmail
-                                        //   }?subject=${encodeURIComponent(
-                                        //     subject
-                                        //   )}&body=${encodeURIComponent(
-                                        //     body
-                                        //   )}`;
-                                        //   Linking.openURL(emailUrl);
-                                        // }}
-                                        // style={styles["card-text-underline"]}
-                                        >
-                                          {e.AgentEmail}
-                                        </CustomText>
-                                      </View>
-                                      <View>
-                                        <CustomText
-                                        // onPress={() => {
-                                        //   let phoneNumber =
-                                        //     e.Phone?.replaceAll("-", "")
-                                        //       .replaceAll("(", "")
-                                        //       .replaceAll(")", "")
-                                        //       .replaceAll(" ", "");
+                    </View>
 
-                                        //   phoneNumber = `tel:${phoneNumber}`;
-
-                                        //   Linking.canOpenURL(phoneNumber)
-                                        //     .then((supported) => {
-                                        //       return Linking.openURL(
-                                        //         phoneNumber
-                                        //       );
-                                        //     })
-                                        //     .catch((err) => console.log(err));
-                                        // }}
-                                        // style={styles["card-text-underline"]}
-                                        >
-                                          {e.Phone}
-                                        </CustomText>
-                                      </View>
-                                    </>
-                                  )}
-                                </View>
-                              )}
-                            </>
-                          ))}
-
-                          {/* To show the search field when there is no sellers exist */}
-                          {sellerInfo["RowData"].length == 0 && (
-                            <View
-                              style={[
-                                styles["card-input"],
-                                // styles["card-item"],
-                                Platform.OS !== "web" && {
-                                  flexDirection: "row",
-                                },
-                                { width: 430 },
-                              ]}
-                            >
-                              <InputField
-                                value={AutoCinput["0"] || ""}
-                                label="Add Company or Seller Name, Email or Cell Phone"
-                                type="default"
-                                name="EmailorCellPhone"
-                                onChangeText={(text) => {
-                                  handleCompanySearch(text, "0", "S");
-                                }}
-                                onKeyPress={(event) => {
-                                  setSelectedItemIndex(-1);
-                                  fnFocusInput(event);
-                                }}
-                                onBlur={(e) => {
-                                  fnShowAddNew(0, "Hide");
-                                }}
-                                onFocus={(e) => {
-                                  fnShowAddNew(0, "Show");
-                                }}
-                                placeholder="Search for Company or Seller Name, Email or Cell Phone"
-                              />
-                              <CustomText
-                                style={{
-                                  position: "absolute",
-                                  right: 0,
-                                  top: 35,
-                                }}
-                              >
-                                {otherProps["0"] && (
-                                  <View style={{ right: 30 }}>
-                                    <ArrowSpinner />
-                                  </View>
-                                )}
-                                {/* {!validation["0"] && (
-                                  <FontAwesome
-                                    name="close"
-                                    style={[
-                                      styles["modal-close"],
-                                      {
-                                        color: "red",
-                                        cursor: "pointer",
-                                        opacity: 0.8,
-                                        top: -2,
-                                      },
-                                    ]}
-                                    strokeWidth={30}
-                                    size={17}
-                                    color={"black"}
-                                    onPress={(event) => {
-                                      handleCloseEditCompany(e);
-                                    }}
-                                  />
-                                )} */}
-                              </CustomText>
-                              {AutoCompdata["0"] && !isModalVisible.Seller && (
-                                <FlatList
-                                  style={styles["search-drop-down"]}
-                                  data={AutoCompdata["0"]}
-                                  showsVerticalScrollIndicator={true}
-                                  removeClippedSubviews={true}
-                                  ref={flatListRef}
-                                  renderItem={({ item, index: i }) => (
-                                    <Pressable
-                                      // ref={btnAddNewRef}
-                                      ref={(ref) => setListRef(i, ref)}
-                                      style={({ pressed }) => [
-                                        {
-                                          opacity: pressed ? 0.5 : 1,
-                                          borderWidth: 1,
-                                          borderColor: "silver",
-                                          borderTopWidth: 0,
-                                          backgroundColor:
-                                            i === selectedItemIndex
-                                              ? "yellow"
-                                              : i % 2 == 0
-                                              ? "#d9ecff"
-                                              : "#fff",
-                                        },
-                                        isHovered && styles["HoverBgColor"],
-                                      ]}
-                                      onPress={(event) => {
-                                        handleOnkeyPressFlatlist(
-                                          AutoCompdata["0"][selectedItemIndex],
-                                          1
-                                        );
-                                      }}
-                                    >
-                                      <View>
-                                        {handleTypeaheadOption(item, 1)}
-                                      </View>
-                                    </Pressable>
-                                  )}
-                                  keyExtractor={(item) => item.id}
-                                />
-                              )}
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    </>
-                  ) : (
                     <>
                       {!editCard[row["ContactType"]] ||
                       (queryString["IsEditRights"] != 1 &&
@@ -2996,10 +6012,7 @@ export default function VendorContacts() {
                                 >
                                   Email{" "}
                                   <CustomText
-                                    style={[
-                                      { fontSize: 11, color: "red" },
-                                      // styles["card-text-underline"],
-                                    ]}
+                                    style={[{ fontSize: 11, color: "red" }]}
                                     onPress={() => {
                                       let subject = "",
                                         body = "";
@@ -3029,12 +6042,9 @@ export default function VendorContacts() {
                             ]}
                           >
                             <>
-                              {/* COMPANY */}
-
                               <View
                                 style={{
                                   flexDirection: "column",
-                                  // backgroundColor: "red",
                                   gap: 10,
                                 }}
                               >
@@ -3066,7 +6076,7 @@ export default function VendorContacts() {
                                             },
                                           ]}
                                           onPress={
-                                            (e) => fnSaveWindowSizePosition(row)
+                                            (e) => fnOpenVendorPage(row)
                                             // handleWebPageOpen(
                                             //   row,
                                             //   Platform.OS === "web" &&
@@ -3144,26 +6154,27 @@ export default function VendorContacts() {
                                               <ArrowSpinner />
                                             </View>
                                           )}
-                                          {!validation[row["ContactType"]] && (
-                                            <FontAwesome
-                                              name="close"
-                                              style={[
-                                                styles["modal-close"],
-                                                {
-                                                  color: "red",
-                                                  cursor: "pointer",
-                                                  opacity: 0.8,
-                                                  top: -2,
-                                                },
-                                              ]}
-                                              strokeWidth={30}
-                                              size={17}
-                                              color={"black"}
-                                              onPress={(e) => {
-                                                handleCloseEditCompany(row);
-                                              }}
-                                            />
-                                          )}
+                                          {!validation[row["ContactType"]] &&
+                                            row["AgentID"] && (
+                                              <FontAwesome
+                                                name="close"
+                                                style={[
+                                                  styles["modal-close"],
+                                                  {
+                                                    color: "red",
+                                                    cursor: "pointer",
+                                                    opacity: 0.8,
+                                                    top: -2,
+                                                  },
+                                                ]}
+                                                strokeWidth={30}
+                                                size={17}
+                                                color={"black"}
+                                                onPress={(e) => {
+                                                  handleCloseEditCompany(row);
+                                                }}
+                                              />
+                                            )}
                                         </CustomText>
                                         {AutoCompdata[row["ContactType"]] && (
                                           <FlatList
@@ -3226,101 +6237,123 @@ export default function VendorContacts() {
                                 {!editCompany[row["ContactType"]] && (
                                   <>
                                     <View style={styles["card-item"]}>
-                                      <CustomText>
-                                        {/* {row.CompanyAddress?.split(",")[0]} */}
-                                        {row.CompanyStreetAddr}
-                                      </CustomText>
-                                      <CustomText>
-                                        {/* {getAddress(row.CompanyAddress) || ""} */}
-                                        {`${row.CompanyCity}, ${row.CompanyState} ${row.CompanyZip}`}
-                                      </CustomText>
-                                    </View>
-
-                                    <View style={styles["card-item"]}>
-                                      <CustomText
-                                      // onPress={() => {
-                                      //   let phoneNumber =
-                                      //     row.CompPhone?.replaceAll("-", "")
-                                      //       .replaceAll("(", "")
-                                      //       .replaceAll(")", "")
-                                      //       .replaceAll(" ", "");
-
-                                      //   phoneNumber = `tel:${phoneNumber}`;
-
-                                      //   Linking.canOpenURL(phoneNumber)
-                                      //     .then((supported) => {
-                                      //       return Linking.openURL(
-                                      //         phoneNumber
-                                      //       );
-                                      //     })
-                                      //     .catch((err) => console.log(err));
-                                      // }}
-                                      // style={styles["card-text-underline"]}
-                                      >
-                                        {row.CompPhone}
-                                      </CustomText>
-                                    </View>
-                                    {row["ContactType"] !== 7 && (
-                                      <View
-                                        style={[
-                                          styles["card-item"],
-                                          {
-                                            flexDirection: "row",
-                                          },
-                                        ]}
-                                      >
+                                      {row.CompanyStreetAddr ? (
+                                        <CustomText>
+                                          {row.CompanyStreetAddr}
+                                        </CustomText>
+                                      ) : (
                                         <CustomText
                                           bold={true}
                                           style={[
                                             styles["card-lablebold"],
-                                            { marginRight: 5 },
-                                            {
-                                              width:
-                                                Platform.OS === "web"
-                                                  ? "fit-content"
-                                                  : null,
-                                              backgroundColor:
-                                                row.CompanyLicense || "yellow",
-                                            },
+                                            styles["labelBackground"],
                                           ]}
                                         >
-                                          {"License "}
+                                          {"Company Address"}
                                         </CustomText>
-                                        <CustomText>
-                                          {row.CompanyLicense}
+                                      )}
+                                      <CustomText>
+                                        {`${row.CompanyCity}${
+                                          row.CompanyCity && ","
+                                        } ${row.CompanyState} ${
+                                          row.CompanyZip
+                                        }`}
+                                      </CustomText>
+                                      {!row.CompanyZip && (
+                                        <CustomText
+                                          bold={true}
+                                          style={[
+                                            styles["card-lablebold"],
+                                            styles["labelBackground"],
+                                          ]}
+                                        >
+                                          {"Company Zip"}
                                         </CustomText>
-                                      </View>
-                                    )}
-                                    {[7, 2, 4, 17, 48, 49].includes(
+                                      )}
+                                      {!row.CompanyCity && (
+                                        <CustomText
+                                          bold={true}
+                                          style={[
+                                            styles["card-lablebold"],
+                                            styles["labelBackground"],
+                                          ]}
+                                        >
+                                          {"Company City"}
+                                        </CustomText>
+                                      )}
+                                      {!row.CompanyState && (
+                                        <CustomText
+                                          bold={true}
+                                          style={[
+                                            styles["card-lablebold"],
+                                            styles["labelBackground"],
+                                          ]}
+                                        >
+                                          {"Company State"}
+                                        </CustomText>
+                                      )}
+                                    </View>
+
+                                    <View style={styles["card-item"]}>
+                                      {row.CompPhone ? (
+                                        <CustomText>{row.CompPhone}</CustomText>
+                                      ) : (
+                                        <CustomText
+                                          bold={true}
+                                          style={[
+                                            styles["card-lablebold"],
+                                            styles["labelBackground"],
+                                          ]}
+                                        >
+                                          {"Cell Phone"}
+                                        </CustomText>
+                                      )}
+                                    </View>
+
+                                    {/* {[7, 2, 4, 17, 48, 49].includes(
                                       row["ContactType"]
                                     ) && (
+                                      <> */}
+                                    {queryString["IsEditRights"] == 1 ||
+                                    !editCard[row["ContactType"]] ? (
+                                      <View
+                                        style={[
+                                          styles["card-input"],
+                                          styles["card-item"],
+                                        ]}
+                                      >
+                                        <InputField
+                                          validate={
+                                            saveValidation[
+                                              cardInfo[index] //["ContactType"]
+                                            ] !== undefined
+                                              ? saveValidation[
+                                                  cardInfo[index]["ContactType"]
+                                                ]["FileNumber"]
+                                              : false
+                                          }
+                                          label={"Policy Number"}
+                                          //autoFocus
+                                          type="default"
+                                          name={"Policy Number"}
+                                          // value={
+                                          //   cardInfo[index]["FileNumber"]
+                                          // }
+                                          placeholder={"Policy Number"}
+                                          onChangeText={(Text) => {
+                                            handleCardChange(
+                                              index,
+                                              "FileNumber",
+                                              Text
+                                            );
+                                          }}
+                                        />
+                                      </View>
+                                    ) : (
                                       <>
-                                        {queryString["IsEditRights"] == 1 ||
-                                        !editCard[row["ContactType"]] ? (
-                                          // <View style={styles["card-item"]}>
-                                          //   <CustomText
-                                          //     bold={true}
-                                          //     style={[
-                                          //       styles["card-lablebold"],
-                                          //       {
-                                          //         width:
-                                          //           Platform.OS === "web"
-                                          //             ? "fit-content"
-                                          //             : null,
-                                          //         backgroundColor:
-                                          //           row.FileNumber || "yellow",
-                                          //       },
-                                          //     ]}
-                                          //   >
-                                          //     {row["ContactType"] === 7
-                                          //       ? "Policy Number "
-                                          //       : "File Number "}
-                                          //   </CustomText>
-                                          //   <CustomText>
-                                          //     {row.FileNumber}
-                                          //   </CustomText>
-
-                                          // </View>
+                                        {[7, 2, 4, 17, 48, 49].includes(
+                                          row["ContactType"]
+                                        ) && (
                                           <View
                                             style={[
                                               styles["card-input"],
@@ -3366,75 +6399,18 @@ export default function VendorContacts() {
                                                   Text
                                                 );
                                               }}
+                                              // style ={styles.InputField}
                                             />
                                           </View>
-                                        ) : (
-                                          <>
-                                            {[7, 2, 4, 17, 48, 49].includes(
-                                              row["ContactType"]
-                                            ) && (
-                                              <View
-                                                style={[
-                                                  styles["card-input"],
-                                                  styles["card-item"],
-                                                ]}
-                                              >
-                                                <InputField
-                                                  validate={
-                                                    saveValidation[
-                                                      cardInfo[index][
-                                                        "ContactType"
-                                                      ]
-                                                    ] !== undefined
-                                                      ? saveValidation[
-                                                          cardInfo[index][
-                                                            "ContactType"
-                                                          ]
-                                                        ]["FileNumber"]
-                                                      : false
-                                                  }
-                                                  label={
-                                                    row["ContactType"] === 7
-                                                      ? "Policy Number"
-                                                      : "File Number"
-                                                  }
-                                                  //autoFocus
-                                                  type="default"
-                                                  name={
-                                                    row["ContactType"] === 7
-                                                      ? "Policy Number"
-                                                      : "File Number"
-                                                  }
-                                                  value={
-                                                    cardInfo[index][
-                                                      "FileNumber"
-                                                    ]
-                                                  }
-                                                  placeholder={
-                                                    row["ContactType"] === 7
-                                                      ? "Policy Number"
-                                                      : "File Number"
-                                                  }
-                                                  onChangeText={(Text) => {
-                                                    handleCardChange(
-                                                      index,
-                                                      "FileNumber",
-                                                      Text
-                                                    );
-                                                  }}
-                                                  // style ={styles.InputField}
-                                                />
-                                              </View>
-                                            )}
-                                          </>
                                         )}
                                       </>
                                     )}
+                                    {/* </>
+                                    )} */}
                                   </>
                                 )}
                               </View>
 
-                              {/* AGENT */}
                               {!editCompany[row["ContactType"]] && (
                                 <View
                                   style={{
@@ -3444,54 +6420,80 @@ export default function VendorContacts() {
                                   }}
                                 >
                                   <View style={[styles["card-item"]]}>
-                                    <CustomText bold={true}>
+                                    {/* <CustomText bold={true}>
                                       {row.AgentFNN}
-                                      {/* {`${row.FirstName}${row.Nickname}${row.LastName}`} */}
-                                    </CustomText>
+                                    </CustomText> */}
+
+                                    {row.AgentFNN && (
+                                      <CustomText bold={true}>
+                                        {row.AgentFNN}
+                                      </CustomText>
+                                    )}
+                                    {!row.FirstName && (
+                                      <CustomText
+                                        bold={true}
+                                        style={[
+                                          styles["card-lablebold"],
+                                          styles["labelBackground"],
+                                        ]}
+                                      >
+                                        {"FirstName"}
+                                      </CustomText>
+                                    )}
+                                    {!row.LastName && (
+                                      <CustomText
+                                        bold={true}
+                                        style={[
+                                          styles["card-lablebold"],
+                                          styles["labelBackground"],
+                                        ]}
+                                      >
+                                        {"LastName"}
+                                      </CustomText>
+                                    )}
                                   </View>
 
-                                  {row.Phone !== "" && (
-                                    <View style={styles["card-item"]}>
-                                      <CustomText
-                                      // onPress={() => {
-                                      //   let phoneNumber =
-                                      //     row.Phone?.replaceAll("-", "")
-                                      //       .replaceAll("(", "")
-                                      //       .replaceAll(")", "")
-                                      //       .replaceAll(" ", "");
-
-                                      //   phoneNumber = `tel:${phoneNumber}`;
-
-                                      //   Linking.canOpenURL(phoneNumber)
-                                      //     .then((supported) => {
-                                      //       return Linking.openURL(
-                                      //         phoneNumber
-                                      //       );
-                                      //     })
-                                      //     .catch((err) => console.log(err));
-                                      // }}
-                                      // style={styles["card-text-underline"]}
+                                  {/* {row.Phone !== "" && ( */}
+                                  <View style={styles["card-item"]}>
+                                    {/* <CustomText
+                                      
                                       >
                                         {row.Phone}
+                                      </CustomText> */}
+                                    {row.Phone ? (
+                                      <CustomText>{row.Phone}</CustomText>
+                                    ) : (
+                                      <CustomText
+                                        bold={true}
+                                        style={[
+                                          styles["card-lablebold"],
+                                          styles["labelBackground"],
+                                        ]}
+                                      >
+                                        {"Agent Cell Phone"}
                                       </CustomText>
-                                    </View>
-                                  )}
+                                    )}
+                                  </View>
+                                  {/* )} */}
                                   <View style={styles["card-item"]}>
-                                    <CustomText
-                                    // onPress={() => {
-                                    //   let subject = "",
-                                    //     body = "";
-                                    //   const emailUrl = `mailto:${
-                                    //     row.AgentEmail
-                                    //   }?subject=${encodeURIComponent(
-                                    //     subject
-                                    //   )}&body=${encodeURIComponent(body)}`;
-                                    //   Linking.openURL(emailUrl);
-                                    // }}
-                                    // style={styles["card-text-underline"]}
+                                    {/* <CustomText
+                                    
                                     >
                                       {row.AgentEmail}
-                                    </CustomText>
+                                    </CustomText> */}
+                                    {row.AgentEmail ? (
+                                      <CustomText>{row.AgentEmail}</CustomText>
+                                    ) : (
+                                      <CustomText
+                                        bold={true}
+                                        style={[
+                                          styles["card-lablebold"],
+                                          styles["labelBackground"],
+                                        ]}
+                                      >
+                                        {"Agent Email"}
+                                      </CustomText>
+                                    )}
                                   </View>
                                   {row["ContactType"] !== 7 && (
                                     <>
@@ -3616,11 +6618,7 @@ export default function VendorContacts() {
                                 validate={
                                   saveValidation[
                                     cardInfo[index]["ContactType"]
-                                  ] !== undefined
-                                    ? saveValidation[
-                                        cardInfo[index]["ContactType"]
-                                      ]["LastName"]
-                                    : false
+                                  ]["LastName"]
                                 }
                                 label="Agent Last Name"
                                 //autoFocus
@@ -3651,13 +6649,16 @@ export default function VendorContacts() {
                             >
                               <InputField
                                 validate={
+                                  // saveValidation[
+                                  //   cardInfo[index]["ContactType"]
+                                  // ] !== undefined
+                                  //   ? saveValidation[
+                                  //       cardInfo[index]["ContactType"]
+                                  //     ]["Phone"]
+                                  //   : false
                                   saveValidation[
                                     cardInfo[index]["ContactType"]
-                                  ] !== undefined
-                                    ? saveValidation[
-                                        cardInfo[index]["ContactType"]
-                                      ]["Phone"]
-                                    : false
+                                  ]["Phone"]
                                 }
                                 label="Agent Cell Phone"
                                 // autoFocus
@@ -3685,13 +6686,16 @@ export default function VendorContacts() {
                             >
                               <InputField
                                 validate={
+                                  // saveValidation[
+                                  //   cardInfo[index]["ContactType"]
+                                  // ] !== undefined
+                                  //   ? saveValidation[
+                                  //       cardInfo[index]["ContactType"]
+                                  //     ]["AgentEmail"]
+                                  //   : false
                                   saveValidation[
                                     cardInfo[index]["ContactType"]
-                                  ] !== undefined
-                                    ? saveValidation[
-                                        cardInfo[index]["ContactType"]
-                                      ]["AgentEmail"]
-                                    : false
+                                  ]["AgentEmail"]
                                 }
                                 label="Agent Email"
                                 //autoFocus
@@ -3716,6 +6720,18 @@ export default function VendorContacts() {
                                 ]}
                               >
                                 <InputField
+                                  validate={
+                                    // saveValidation[
+                                    //   cardInfo[index]["ContactType"]
+                                    // ] !== undefined
+                                    //   ? saveValidation[
+                                    //       cardInfo[index]["ContactType"]
+                                    //     ]["AgentEmail"]
+                                    //   : false
+                                    saveValidation[
+                                      cardInfo[index]["ContactType"]
+                                    ]["AgentLicense"]
+                                  }
                                   label="Agent License Number"
                                   // autoFocus
                                   type="default"
@@ -3749,6 +6765,11 @@ export default function VendorContacts() {
                               ]}
                             >
                               <InputField
+                                validate={
+                                  saveValidation[
+                                    cardInfo[index]["ContactType"]
+                                  ]["CompanyStreetAddr"]
+                                }
                                 label="Company Street Address"
                                 //   autoFocus
                                 type="default"
@@ -3773,6 +6794,11 @@ export default function VendorContacts() {
                               ]}
                             >
                               <InputField
+                                validate={
+                                  saveValidation[
+                                    cardInfo[index]["ContactType"]
+                                  ]["CompanyZip"]
+                                }
                                 label="Company Zip Code"
                                 //   autoFocus
                                 type="default"
@@ -3801,6 +6827,11 @@ export default function VendorContacts() {
                               ]}
                             >
                               <InputField
+                                validate={
+                                  saveValidation[
+                                    cardInfo[index]["ContactType"]
+                                  ]["CompanyCity"]
+                                }
                                 label="Company City"
                                 //   autoFocus
                                 type="default"
@@ -3820,6 +6851,11 @@ export default function VendorContacts() {
                               ]}
                             >
                               <InputField
+                                validate={
+                                  saveValidation[
+                                    cardInfo[index]["ContactType"]
+                                  ]["CompanyState"]
+                                }
                                 label="Company State"
                                 //   autoFocus
                                 type="default"
@@ -3849,13 +6885,16 @@ export default function VendorContacts() {
                             >
                               <InputField
                                 validate={
+                                  // saveValidation[
+                                  //   cardInfo[index]["ContactType"]
+                                  // ] !== undefined
+                                  //   ? saveValidation[
+                                  //       cardInfo[index]["ContactType"]
+                                  //     ]["CompPhone"]
+                                  //   : false
                                   saveValidation[
                                     cardInfo[index]["ContactType"]
-                                  ] !== undefined
-                                    ? saveValidation[
-                                        cardInfo[index]["ContactType"]
-                                      ]["CompPhone"]
-                                    : false
+                                  ]["CompPhone"]
                                 }
                                 label="Company Phone"
                                 //autoFocus
@@ -3890,6 +6929,18 @@ export default function VendorContacts() {
                                   ]}
                                 >
                                   <InputField
+                                    validate={
+                                      // saveValidation[
+                                      //   cardInfo[index]["ContactType"]
+                                      // ] !== undefined
+                                      //   ? saveValidation[
+                                      //       cardInfo[index]["ContactType"]
+                                      //     ]["AgentEmail"]
+                                      //   : false
+                                      saveValidation[
+                                        cardInfo[index]["ContactType"]
+                                      ]["CompanyLicense"]
+                                    }
                                     label="Company License Number"
                                     // autoFocus
                                     type="default"
@@ -3924,13 +6975,17 @@ export default function VendorContacts() {
                               >
                                 <InputField
                                   validate={
+                                    // saveValidation[
+                                    //   cardInfo[index]["ContactType"]
+                                    // ] !== undefined
+                                    //   ? saveValidation[
+                                    //       cardInfo[index]["ContactType"]
+                                    //     ]["FileNumber"]
+                                    //   : false
+
                                     saveValidation[
                                       cardInfo[index]["ContactType"]
-                                    ] !== undefined
-                                      ? saveValidation[
-                                          cardInfo[index]["ContactType"]
-                                        ]["FileNumber"]
-                                      : false
+                                    ]["FileNumber"]
                                   }
                                   label={
                                     row["ContactType"] === 7
@@ -3960,8 +7015,7 @@ export default function VendorContacts() {
                         </>
                       )}
                     </>
-                  )}
-                  {[2, 7, 48].includes(row["ContactType"]) ? (
+
                     <View style={styles["card-footer"]}>
                       {row["AgentID"] ? (
                         <TouchableOpacity
@@ -4018,1049 +7072,29 @@ export default function VendorContacts() {
                         </View>
                       )}
                     </View>
-                  ) : (
-                    <View style={styles["card-footer"]}>
-                      {[43, 50, 51].includes(row["ContactType"]) ? (
-                        <>
-                          <View></View> {/*Dummy View for spacing alignment*/}
-                          <View
-                            style={[
-                              styles["card-item"],
-                              { flexDirection: "row", alignItems: "center" },
-                            ]}
-                          >
-                            <CustomText
-                              bold={true}
-                              style={[
-                                styles["card-lablebold"],
-                                { color: "white" },
-                              ]}
-                            >
-                              {row["ContactType"] == 43
-                                ? "Does Not Apply"
-                                : "No Realtor"}
-                            </CustomText>
-                            <Checkbox
-                              style={styles["card-checkbox"]}
-                              value={copyAgent[row["ContactType"]]}
-                              color={
-                                copyAgent[row["ContactType"]] ? "#5e9cd3" : ""
-                              }
-                              onValueChange={(e) => {
-                                handleChangeCheckBox(
-                                  row["ContactType"],
-                                  e,
-                                  index,
-                                  row["ContactType"] == 43
-                                    ? "DoesNotApply"
-                                    : "Realtor"
-                                );
-                              }}
-                            ></Checkbox>
-                          </View>
-                        </>
-                      ) : (
-                        <View style={{ padding: 13 }}></View>
-                      )}
-                    </View>
-                  )}
-                </View>
-              </View>
-            ))}
-            <View style={{ display: "none" }}>
-              <Button onPress={handleParentWindowSave} text="Parent Save" />
-            </View>
-          </View>
-          {/* </TouchableWithoutFeedback> */}
-          {/* Grids Section */}
-          {handleParamFromURL(document.location.href, "ViewType") == "1" && (
-            <View style={styles["table-container"]}>
-              <ScrollView>
-                <Table
-                  borderStyle={{ borderWidth: 1, borderColor: "transparent" }}
-                >
-                  <Row
-                    data={tabelProps.tableHead}
-                    widthArr={[120, 130, 90, 110]}
-                    style={[styles["table-head"], { color: "#999" }]}
-                    textStyle={[styles["table-text"], { color: "#fff" }]}
-                    // textStyle={[styles["table-text"], { color: "#fff" }]}
-                  />
-
-                  {tabelProps.tableData.map((rowData, index) => (
-                    <>
-                      {([9, 19].includes(rowData["ContactType"]) &&
-                        queryString["IsEditRights"] == 1) ||
-                      ![9, 19].includes(rowData["ContactType"])
-                        ? rowData["ContactType"] == 3 // Appraiser
-                          ? tabelProps.AppraiserRows.map((rowData, i) => {
-                              let Rows = [];
-                              if (i === 0 && queryString["SignOffLevel"] > 4) {
-                                rowData["IsButton"] = true;
-                                Rows.push(CustomTableRow(rowData, -1));
-                              }
-                              if (tabelProps.AppraiserRows[0]["AgentID"])
-                                Rows.push(<>{CustomTableRow(rowData, i)}</>);
-
-                              //   return  <View
-                              //   style={{
-                              //     zIndex: -1,
-                              //     borderColor: "black",
-                              //     borderWidth: 2,
-                              //     borderTopWidth: i !== 0 ? 0 : 2,
-                              //     borderBottomWidth:
-                              //       i === tabelProps.AppraiserRows.length - 1
-                              //         ? 2
-                              //         : 0,
-                              //   }}
-                              // >
-                              //   {Rows}
-                              // </View>;
-                              return Rows;
-                            })
-                          : rowData["ContactType"] == 999 // Non-Borrower
-                          ? tabelProps.NonBorroweRows.map((rowData, i) => {
-                              let Rows = [],
-                                Agent = tabelProps.NonBorroweRows[0]["AgentID"];
-                              if (i === 0) {
-                                rowData["IsButton"] = true;
-                                Rows.push(CustomTableRow(rowData, -1));
-                              }
-                              if (Agent !== 0)
-                                Rows.push(CustomTableRow(rowData, i));
-                              return (
-                                <View
-                                  style={{
-                                    zIndex: -1,
-                                    borderColor: "black",
-                                    borderWidth: 2,
-                                    marginTop: 2,
-
-                                    borderTopWidth: i !== 0 ? 0 : 2,
-                                    borderBottomWidth:
-                                      i === tabelProps.NonBorroweRows.length - 1
-                                        ? 2
-                                        : 0,
-                                  }}
-                                >
-                                  {Rows}
-                                </View>
-                              );
-                            })
-                          : rowData["ContactType"] == 52
-                          ? CustomTableRow(
-                              rowData,
-                              tabelProps["IsShowNotarySearch"] ? -1 : index
-                            )
-                          : rowData["ContactType"] == 56 &&
-                            rowData["DisplaySeller"] == 1
-                          ? CustomTableRow(rowData, index)
-                          : rowData["ContactType"] !== 56 &&  CustomTableRow(rowData, index)
-                        : null}
-                    </>
-                  ))}
-                </Table>
-              </ScrollView>
-            </View>
-          )}
-          {/* Modal Section */}
-          <View style={{ alignItems: "center" }}>
-            {/* Seller Modal */}
-            <Modal
-              isVisible={isModalVisible.Seller}
-              onBackdropPress={() => {
-                setModalVisible({ isModalVisible, Seller: false });
-                fnShowAddNew(0);
-                setInput({ 0: "" });
-              }}
-              style={{
-                backgroundColor: "#fff",
-                //maxWidth: Platform.OS === "web" ? "1000px" : null,
-                //minWidth: Platform.OS === "web" ? "500px" : null,
-                margin: 45,
-                flex: null,
-                alignSelf: Platform.OS === "web" ? "center" : null,
-              }}
-            >
-              <View>
-                <View style={styles["modal-header"]}>
-                  <CustomText style={styles["modal-header-title"]}>
-                    {"Seller List"}
-                  </CustomText>
-                  <AntDesign
-                    name="close"
-                    style={styles["modal-close"]}
-                    strokeWidth={30}
-                    size={24}
-                    color={"black"}
-                    onPress={(e) => {
-                      toggleModal("Seller");
-                      fnShowAddNew(0);
-                    }}
-                  />
-                </View>
-                <View style={styles["modal-container"]}>
-                  <View
-                    style={[
-                      Platform.OS !== "web" && {
-                        flexDirection: "row",
-                      },
-                      { width: 430 },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles["card-input"],
-                        // styles["card-item"],
-                        Platform.OS !== "web" && {
-                          flexDirection: "row",
-                        },
-                        { width: 420 },
-                      ]}
-                    >
-                      <InputField
-                        value={AutoCinput["0"] || ""}
-                        label="Add Company or Seller Name, Email or Cell Phone"
-                        type="default"
-                        name="EmailorCellPhone"
-                        onChangeText={(text) => {
-                          handleCompanySearch(text, "0", "S");
-                        }}
-                        onKeyPress={(event) => {
-                          setSelectedItemIndex(-1);
-                          fnFocusInput(event);
-                        }}
-                        onBlur={(e) => {
-                          fnShowAddNew(0, "Hide");
-                        }}
-                        onFocus={(e) => {
-                          fnShowAddNew(0, "Show");
-                        }}
-                        placeholder="Search for Company or Seller Name, Email or Cell Phone"
-                      />
-                      <CustomText
-                        style={{
-                          position: "absolute",
-                          right: 0,
-                          top: 35,
-                        }}
-                      >
-                        {otherProps["0"] && (
-                          <View style={{ right: 30 }}>
-                            <ArrowSpinner />
-                          </View>
-                        )}
-                      </CustomText>
-                      {AutoCompdata["0"] && isModalVisible.Seller && (
-                        <FlatList
-                          style={styles["search-drop-down"]}
-                          data={AutoCompdata["0"]}
-                          showsVerticalScrollIndicator={true}
-                          removeClippedSubviews={true}
-                          ref={flatListRef}
-                          renderItem={({ item, index: i }) => (
-                            <Pressable
-                              // ref={btnAddNewRef}
-                              ref={(ref) => setListRef(i, ref)}
-                              style={({ pressed }) => [
-                                {
-                                  opacity: pressed ? 0.5 : 1,
-                                  borderWidth: 1,
-                                  borderColor: "silver",
-                                  borderTopWidth: 0,
-                                  backgroundColor:
-                                    i === selectedItemIndex
-                                      ? "yellow"
-                                      : i % 2 == 0
-                                      ? "#d9ecff"
-                                      : "#fff",
-                                },
-                                isHovered && styles["HoverBgColor"],
-                              ]}
-                              onPress={(e) => {
-                                handleOnkeyPressFlatlist(
-                                  AutoCompdata["0"][selectedItemIndex],
-                                  1
-                                );
-                              }}
-                            >
-                              <View>{handleTypeaheadOption(item, 1)}</View>
-                            </Pressable>
-                          )}
-                          keyExtractor={(item) => item.id}
-                        />
-                      )}
-                    </View>
                   </View>
-                  <Table
-                    borderStyle={{
-                      borderWidth: 1,
-                      borderColor: "transparent",
-                      maxWidth: 430,
-                    }}
-                    style={{ paddingTop: 10, zIndex: -1 }}
-                  >
-                    {/* Header */}
-                    <View
-                      style={[
-                        styles["table-head"],
-                        { color: "#fff", flexDirection: "row" },
-                      ]}
-                    >
-                      <Cell
-                        data={[
-                          <View style={{ fontSize: 11, color: "#fff" }}>
-                            <View>{"First Name"}</View>
-                            <View style={{ marginTop: 5 }}>{"Last Name"}</View>
-                          </View>,
-                        ]}
-                        style={{ width: 76 }}
-                      ></Cell>
-                      <Cell
-                        data={[
-                          <View style={{ fontSize: 11, color: "#fff" }}>
-                            <View>{"Entity Name"}</View>
-                          </View>,
-                        ]}
-                      ></Cell>
-                      <Cell
-                        data={[
-                          <View style={{ fontSize: 11, color: "#fff" }}>
-                            <View>{"Cell Phone"}</View>
-                            <View style={{ marginTop: 5 }}>{"Email"}</View>
-                          </View>,
-                        ]}
-                        style={{ width: 100 }}
-                      ></Cell>
-                      {/* <Cell data={[]} style={{ width: 70 }}></Cell> */}
-                      {/* <Cell data={"T1"}></Cell>
-                      <Cell data={"T1"}></Cell>
-                      <Cell data={"T1"}></Cell> */}
-                    </View>
-
-                    {sellerInfo.RowData?.map((rowData, index) => (
-                      <>
-                        {/* {sellerTabelProps["EditRow"][index] !== true && ( */}
-                        <TableWrapper
-                          key={index - 1}
-                          style={[
-                            styles["table-row"],
-                            // sellerTabelProps["EditRow"][index] === true && [
-                            //   styles["card-body"],
-                            //   { gap: 2 },
-                            // ],
-                            {
-                              backgroundColor:
-                                index % 2 == 0 ? "#d9ecff" : "#fff",
-                              maxWidth: 430,
-                            },
-                          ]}
-                        >
-                          {sellerTabelProps["EditRow"][index] !== true ? (
-                            <>
-                              <Cell
-                                width={76}
-                                key={"cell1"}
-                                style={{ display: "block" }}
-                                data={[
-                                  <View>
-                                    <CustomText
-                                      style={{ fontSize: 11, color: "#4b545d" }}
-                                    >
-                                      {rowData.FirstName}
-                                    </CustomText>
-                                    <CustomText
-                                      style={{
-                                        fontSize: 11,
-                                        color: "#4b545d",
-                                        marginTop: 5,
-                                      }}
-                                    >
-                                      {rowData.LastName}
-                                    </CustomText>
-                                  </View>,
-                                ]}
-                              />
-                              {/* <Cell
-                                width={74}
-                                key={"cell1"}
-                                data={[
-                                  <CustomText
-                                    style={{ fontSize: 11, color: "#4b545d" }}
-                                  >
-                                    {rowData.LastName}
-                                  </CustomText>,
-                                ]}
-                              /> */}
-                              <Cell
-                                width={215}
-                                key={"cell2"}
-                                style={{ display: "block" }}
-                                data={[
-                                  <CustomText
-                                    style={{ fontSize: 11, color: "#4b545d" }}
-                                  >
-                                    {rowData.Companyname}
-                                  </CustomText>,
-                                ]}
-                              />
-
-                              <Cell
-                                width={125}
-                                key={"cell3"}
-                                data={[
-                                  <View>
-                                    <View style={{ width: 100 }}>
-                                      <CustomText
-                                        style={{
-                                          fontSize: 11,
-                                          color: "#4b545d",
-                                        }}
-                                      >
-                                        {rowData.Phone}
-                                      </CustomText>
-                                      <CustomText
-                                        style={{
-                                          fontSize: 11,
-                                          color: "#4b545d",
-                                          marginTop: 5,
-                                        }}
-                                      >
-                                        {rowData.AgentEmail}
-                                      </CustomText>
-                                    </View>
-                                    <View
-                                      style={{
-                                        paddingTop: 5,
-                                        flexDirection: "row",
-                                      }}
-                                    >
-                                      <TouchableOpacity
-                                        style={[
-                                          [styles.buttonContainer],
-                                          { alignSelf: "center" },
-                                        ]}
-                                        onPress={(e) => {
-                                          setSellerTabelProps({
-                                            ...sellerTabelProps,
-                                            EditRow: {
-                                              ...sellerTabelProps["EditRow"],
-                                              [index]: true,
-                                            },
-                                          });
-                                        }}
-                                      >
-                                        <CustomText
-                                          style={[
-                                            styles["btn"],
-                                            {
-                                              fontSize: 10,
-                                              minWidth: 36,
-                                              maxWidth: 36,
-                                            },
-                                          ]}
-                                        >
-                                          {"Edit"}
-                                        </CustomText>
-                                      </TouchableOpacity>
-                                      <TouchableOpacity
-                                        style={[
-                                          [styles.buttonContainer],
-                                          { alignSelf: "center" },
-                                        ]}
-                                        onPress={(e) => {
-                                          handleRemoveSellerOrAgent(rowData);
-                                        }}
-                                      >
-                                        <CustomText
-                                          style={[
-                                            styles["btn"],
-                                            { fontSize: 10 },
-                                          ]}
-                                        >
-                                          {"Remove"}
-                                        </CustomText>
-                                      </TouchableOpacity>
-                                    </View>
-                                  </View>,
-                                ]}
-                              />
-                              {/* <Cell
-                                key={"cell4"}
-                                width={70}
-                                data={[
-                                  
-                                ]}
-                              /> */}
-                            </>
-                          ) : (
-                            <>
-                              <View style={{ width: "100%" }}>
-                                <View
-                                  style={[styles["card-body"], { padding: 0 }]}
-                                >
-                                  <View style={styles["card-input"]}>
-                                    <InputField
-                                      autoFocus
-                                      type="default"
-                                      value={
-                                        sellerTabelProps["ModifiedJson"][index]
-                                          .FirstName
-                                      }
-                                      label="First Name"
-                                      placeholder="First Name"
-                                      // style={[
-                                      //   styles["grid-input"],
-                                      //   { outline: "none" },
-                                      // ]}
-                                      onChangeText={(Text) => {
-                                        handleGridChange(
-                                          index,
-                                          "FirstName",
-                                          Text
-                                        );
-                                      }}
-                                    />
-                                  </View>
-                                  <View style={styles["card-input"]}>
-                                    <InputField
-                                      //autoFocus
-                                      type="default"
-                                      label="Last Name"
-                                      value={
-                                        sellerTabelProps["ModifiedJson"][index]
-                                          .LastName
-                                      }
-                                      placeholder="Last Name"
-                                      // style={[
-                                      //   styles["grid-input"],
-                                      //   { outline: "none", display: "block" },
-                                      // ]}
-                                      onChangeText={(Text) => {
-                                        handleGridChange(
-                                          index,
-                                          "LastName",
-                                          Text
-                                        );
-                                      }}
-                                    />
-                                  </View>
-                                </View>
-
-                                <View
-                                  style={[
-                                    styles["card-input"],
-                                    { width: "100%", paddingTop: 20 },
-                                  ]}
-                                >
-                                  <InputField
-                                    //autoFocus
-                                    type="default"
-                                    label="Entity Name"
-                                    value={
-                                      sellerTabelProps["ModifiedJson"][index]
-                                        .Companyname
-                                    }
-                                    placeholder="Entity Name"
-                                    onChangeText={(Text) => {
-                                      handleGridChange(
-                                        index,
-                                        "Companyname",
-                                        Text
-                                      );
-                                    }}
-                                  />
-                                </View>
-                                <View
-                                  style={{
-                                    padding: 0,
-
-                                    flexDirection: "row",
-                                  }}
-                                >
-                                  <View
-                                    style={[
-                                      styles["card-input"],
-                                      { width: "85%", paddingTop: 5 },
-                                    ]}
-                                  >
-                                    <View
-                                      style={{
-                                        padding: 0,
-                                        // paddingTop: 5,
-                                        // paddingBottom: 5,
-                                        flexDirection: "row",
-                                      }}
-                                    >
-                                      <View
-                                        style={[
-                                          styles["card-input"],
-                                          { width: "35%", marginRight: 10 },
-                                        ]}
-                                      >
-                                        <InputField
-                                          //autoFocus
-                                          type="default"
-                                          label="Cell Phone"
-                                          value={
-                                            sellerTabelProps["ModifiedJson"][
-                                              index
-                                            ].Phone
-                                          }
-                                          placeholder="Cell Phone"
-                                          onChangeText={(Text) => {
-                                            handleGridChange(
-                                              index,
-                                              "Phone",
-                                              Text
-                                            );
-                                          }}
-                                          onBlur={(e) => {
-                                            let number = FormatPhoneLogin(
-                                              sellerTabelProps["ModifiedJson"][
-                                                index
-                                              ].Phone
-                                            );
-                                            handleGridChange(
-                                              index,
-                                              "Phone",
-                                              number
-                                            );
-                                          }}
-                                        />
-                                      </View>
-                                      <View
-                                        style={[
-                                          styles["card-input"],
-                                          { width: "62%" },
-                                        ]}
-                                      >
-                                        <InputField
-                                          //autoFocus
-                                          type="default"
-                                          value={
-                                            sellerTabelProps["ModifiedJson"][
-                                              index
-                                            ].AgentEmail
-                                          }
-                                          label="Email"
-                                          placeholder="Email"
-                                          onChangeText={(Text) => {
-                                            handleGridChange(
-                                              index,
-                                              "AgentEmail",
-                                              Text
-                                            );
-                                          }}
-                                        />
-                                      </View>
-                                    </View>
-                                  </View>
-                                  <View
-                                    style={[
-                                      styles["card-input"],
-                                      {
-                                        width: "19%",
-                                        justifyContent: "center",
-                                      },
-                                    ]}
-                                  >
-                                    {sellerTabelProps["EditRow"][index] ===
-                                      true && (
-                                      <View>
-                                        <TouchableOpacity
-                                          style={[
-                                            [styles.buttonContainer],
-                                            { alignSelf: "center", padding: 5 },
-                                          ]}
-                                          onPress={(e) => {
-                                            setSellerTabelProps({
-                                              ...sellerTabelProps,
-                                              EditRow: {
-                                                ...sellerTabelProps["EditRow"],
-                                                [index]: false,
-                                              },
-                                            });
-                                            handleVedorSave(index, "Seller");
-                                          }}
-                                        >
-                                          <CustomText
-                                            style={[
-                                              styles["btn"],
-                                              {
-                                                fontSize: 10,
-                                                minWidth: 45,
-                                                maxWidth: 45,
-                                              },
-                                            ]}
-                                          >
-                                            {"Save"}
-                                          </CustomText>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                          style={[
-                                            [styles.buttonContainer],
-                                            { alignSelf: "center", padding: 5 },
-                                          ]}
-                                          onPress={(e) => {
-                                            setSellerTabelProps({
-                                              ...sellerTabelProps,
-                                              EditRow: {
-                                                ...sellerTabelProps["EditRow"],
-                                                [index]: false,
-                                              },
-                                            });
-                                          }}
-                                        >
-                                          <CustomText
-                                            style={[
-                                              styles["btn"],
-                                              {
-                                                fontSize: 10,
-                                                minWidth: 45,
-                                                maxWidth: 45,
-                                              },
-                                            ]}
-                                          >
-                                            {"Cancel"}
-                                          </CustomText>
-                                        </TouchableOpacity>
-                                      </View>
-                                    )}
-                                  </View>
-                                </View>
-                              </View>
-                            </>
-                          )}
-
-                          {/* Buttons */}
-                          {/* {sellerTabelProps["EditRow"][index] !== true ? (
-                            <>
-                              <Cell
-                               
-                                style={{ alignSelf: "center" }}
-                                data={[
-                                  <View>
-                                    <TouchableOpacity
-                                      style={[
-                                        [styles.buttonContainer],
-                                        { alignSelf: "center" },
-                                      ]}
-                                      onPress={(e) => {
-                                        setSellerTabelProps({
-                                          ...sellerTabelProps,
-                                          EditRow: {
-                                            ...sellerTabelProps["EditRow"],
-                                            [index]: true,
-                                          },
-                                        });
-                                      }}
-                                    >
-                                      <CustomText
-                                        style={[
-                                          styles["btn"],
-                                          {
-                                            fontSize: 10,
-                                            minWidth: 36,
-                                            maxWidth: 36,
-                                          },
-                                        ]}
-                                      >
-                                        {"Edit"}
-                                      </CustomText>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                      style={[
-                                        [styles.buttonContainer],
-                                        { alignSelf: "center" },
-                                      ]}
-                                      onPress={(e) => {
-                                        handleRemoveSellerOrAgent(rowData);
-                                      }}
-                                    >
-                                      <CustomText
-                                        style={[
-                                          styles["btn"],
-                                          { fontSize: 10 },
-                                        ]}
-                                      >
-                                        {"Remove"}
-                                      </CustomText>
-                                    </TouchableOpacity>
-                                  </View>,
-                                ]}
-                              />
-                              
-                            </>
-                          ) : (
-                            <>
-                              <Cell
-                                style={{ alignSelf: "center" }}
-                                data={null}
-                              />
-                             
-                            </>
-                          )} */}
-                        </TableWrapper>
-                        {/* )} */}
-                        {/* {sellerTabelProps["EditRow"][index] == true && (
-                        <TableWrapper>
-                          <Cell width={200} key={"cell1"}>
-                            <View style={{ maxWidth: "100%" }}>
-                              <InputField
-                                // autoFocus
-                                type="default"
-                                value={
-                                  sellerTabelProps["ModifiedJson"][index]
-                                    .FirstName
-                                }
-                                label="Agent First Name"
-                                placeholder="Agent First Name"
-                                style={[
-                                  styles["grid-input"],
-                                  { outline: "none" },
-                                ]}
-                                onChangeText={(Text) => {
-                                  handleGridChange(index, "FirstName", Text);
-                                }}
-                              />
-                            </View>
-                          </Cell>
-                          <Cell width={200} key={"cell1"}>
-                            <View style={{ maxWidth: "100%" }}>
-                              <InputField
-                                // autoFocus
-                                type="default"
-                                value={
-                                  sellerTabelProps["ModifiedJson"][index]
-                                    .FirstName
-                                }
-                                label="Agent First Name"
-                                placeholder="Agent First Name"
-                                style={[
-                                  styles["grid-input"],
-                                  { outline: "none" },
-                                ]}
-                                onChangeText={(Text) => {
-                                  handleGridChange(index, "FirstName", Text);
-                                }}
-                              />
-                            </View>
-                          </Cell>
-                          <Cell width={200} key={"cell1"}>
-                            <View style={{ maxWidth: "100%" }}>
-                              <InputField
-                                // autoFocus
-                                type="default"
-                                value={
-                                  sellerTabelProps["ModifiedJson"][index]
-                                    .FirstName
-                                }
-                                label="Agent First Name"
-                                placeholder="Agent First Name"
-                                style={[
-                                  styles["grid-input"],
-                                  { outline: "none" },
-                                ]}
-                                onChangeText={(Text) => {
-                                  handleGridChange(index, "FirstName", Text);
-                                }}
-                              />
-                            </View>
-                          </Cell>
-                        </TableWrapper>
-                      )} */}
-                      </>
-                    ))}
-                    {/* {sellerInfo.RowData.length == 0 &&
-                  <TableWrapper
-                    key={ - 1}
-                    style={[
-                      styles["table-row"],
-                      {
-                        backgroundColor: "#fff",
-                      },
-                    ]}
-                  >
-                    <Cell
-                      width={500}
-                      key={"cell1"}
-                      data={[
-                        <CustomText style={{ fontSize: 12, color: "#4b545d" }}>
-                          {"No records found"}
-                        </CustomText>,
-                      ]}
-                    />
-                  </TableWrapper>
-} */}
-                  </Table>
                 </View>
-                <View style={[styles["modal-footer"], { zIndex: -1 }]}>
-                  <TouchableOpacity
-                    style={[
-                      [styles.buttonContainer],
-                      { alignSelf: "center", padding: 5 },
-                    ]}
-                    onPress={() => {
-                      setModalVisible({ isModalVisible, Seller: false });
-                    }}
-                  >
-                    <CustomText style={[styles["btn"]]}>{"Close"}</CustomText>
-                  </TouchableOpacity>
-                </View>
+              ))}
+              <View style={{ display: "none" }}>
+                <Button
+                  onPress={handleParentWindowSave}
+                  title={"Parent Save"}
+                />
               </View>
-            </Modal>
-            {/* IsSame Confirmation Modal */}
-            <Modal
-              isVisible={isModalVisible.Confirmation}
-              onBackdropPress={() =>
-                setModalVisible({ isModalVisible, Confirmation: false })
-              }
-              style={{
-                backgroundColor: "#fff",
-                maxWidth: Platform.OS === "web" ? "1000px" : null,
-                flex: null,
-                alignSelf: Platform.OS === "web" ? "center" : null,
-              }}
-            >
-              <View>
-                <View style={styles["modal-header"]}>
-                  <CustomText style={styles["modal-header-title"]}>
-                    {"Confirmation"}
-                  </CustomText>
-                  <AntDesign
-                    name="close"
-                    style={styles["modal-close"]}
-                    strokeWidth={30}
-                    size={24}
-                    color={"black"}
-                    onPress={(e) => {
-                      toggleModal("Confirmation");
-                    }}
-                  />
-                </View>
-                <View
-                  style={[
-                    styles["modal-container"],
-                    { minWidth: 350, marginLeft: 20 },
-                  ]}
-                >
-                  <CustomText>
-                    Would you like to use the same
-                    {isModalVisible.AgentType == 2 &&
-                      `Title and Escrow Agent`}{" "}
-                    {isModalVisible.AgentType == 48 &&
-                      `Title Seller and Escrow Seller Agent`}
-                    ?
-                  </CustomText>
-                </View>
-                <View style={styles["modal-footer"]}>
-                  <TouchableOpacity
-                    style={[
-                      [styles.buttonContainer],
-                      { alignSelf: "center", padding: 5 },
-                    ]}
-                    onPress={() => {
-                      // handleIfSameTitle("", "", 0);
-                    }}
-                  >
-                    <CustomText style={[styles["btn"]]}>{" No "}</CustomText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      [styles.buttonContainer],
-                      { alignSelf: "center", padding: 5 },
-                    ]}
-                    onPress={() => {
-                      //handleIfSameTitle("", "", 1);
-                    }}
-                  >
-                    <CustomText style={[styles["btn"]]}>{"Yes"}</CustomText>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Modal>
-            {/* Remove Confirmation Modal */}
-            <Modal
-              isVisible={isModalVisible.Remove}
-              onBackdropPress={() =>
-                setModalVisible({ isModalVisible, Remove: false })
-              }
-              style={{
-                backgroundColor: "#fff",
-                maxWidth: Platform.OS === "web" ? "1000px" : null,
-                flex: null,
-                alignSelf: Platform.OS === "web" ? "center" : null,
-              }}
-            >
-              <View>
-                <View style={styles["modal-header"]}>
-                  <CustomText style={styles["modal-header-title"]}>
-                    {"Confirmation"}
-                  </CustomText>
-                  <AntDesign
-                    name="close"
-                    style={styles["modal-close"]}
-                    strokeWidth={30}
-                    size={24}
-                    color={"black"}
-                    onPress={(e) => {
-                      toggleModal("Remove");
-                    }}
-                  />
-                </View>
-                <View
-                  style={[
-                    styles["modal-container"],
-                    { minWidth: 350, marginLeft: 20 },
-                  ]}
-                >
-                  <CustomText>
-                    {isModalVisible.Data && (
-                      <>
-                        Are you sure want to Remove{" "}
-                        <CustomText bold={true}>
-                          {isModalVisible.Data.ContactTypename}:{" "}
-                          {isModalVisible.Data.Companyname}
-                        </CustomText>{" "}
-                        from the Loan{" "}
-                        <CustomText bold={true}>
-                          {"("}
-                          {isModalVisible.Data.Loanid}
-                          {")"}
-                        </CustomText>
-                      </>
-                    )}
-                  </CustomText>
-                </View>
-                <View style={styles["modal-footer"]}>
-                  <TouchableOpacity
-                    style={[
-                      [styles.buttonContainer],
-                      { alignSelf: "center", padding: 5 },
-                    ]}
-                    onPress={() => {
-                      setModalVisible({ isModalVisible, Remove: false });
-                    }}
-                  >
-                    <CustomText style={[styles["btn"]]}>{" No "}</CustomText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      [styles.buttonContainer],
-                      { alignSelf: "center", padding: 5 },
-                    ]}
-                    onPress={() => {
-                      handleRemoveSellerOrAgent(isModalVisible.Data);
-                    }}
-                  >
-                    <CustomText style={[styles["btn"]]}>{"Yes"}</CustomText>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Modal>
-          </View>
-        </>
+            </View>
+          </>
+        )}
+      </View>
+    );
+  };
+  /////////////////////////////// Component declaration ends here /////////////////////////
+
+  return (
+    <View>
+      {queryString["Page"] === "HazardInsurance" ? (
+        <>{HazardInsurance()}</>
+      ) : (
+        <>{Vendors()}</>
       )}
     </View>
   );
@@ -5087,6 +7121,7 @@ const styles = StyleSheet.create({
     ...{
       padding: 0,
       margin: 10,
+      marginLeft: 0,
       borderColor: "#5e9cd3",
       borderWidth: 1,
       zIndex: -1,
@@ -5220,13 +7255,17 @@ const styles = StyleSheet.create({
     //height: Platform.OS === "web" ? 40 : 50,
     backgroundColor: "#428bca",
     padding: 4,
+    paddingBottom: 0,
+    paddingTop: 0,
   },
   "table-wrapper": { flexDirection: "row" },
   "table-title": { flex: 1, backgroundColor: "#428bca" },
   "table-row": {
     flexDirection: "row",
     backgroundColor: "#FFF1C1",
-    padding: 10,
+    padding: 4, //10,
+    paddingBottom: 0,
+    paddingTop: 0,
   },
   "table-text": {
     textAlign: "left",
@@ -5316,5 +7355,33 @@ const styles = StyleSheet.create({
   "card-validation": {
     borderColor: "red",
     borderWidth: 3,
+  },
+  labelBackground: {
+    width: Platform.OS === "web" ? "fit-content" : null,
+    backgroundColor: "yellow",
+    marginTop: 5,
+  },
+  "Grid-Cell-Border": {
+    //borderTopWidth:1,
+    borderRightWidth: 1,
+    // borderLeftWidth:1,
+    // borderBottomWidth:1,
+    borderColor: "#89b7e0",
+    padding: 0,
+    borderStyle: "dotted",
+    // marginLeft:5,
+    marginRight: 5,
+  },
+  "table-row-bottom-border": {
+    borderColor: "#89b7e0",
+    borderBottomWidth: 1,
+    borderStyle: "dotted",
+    paddingTop: 5,
+  },
+  "table-row-LeftRight-border": {
+    borderColor: "#89b7e0",
+    borderRightWidth: 1,
+    borderLeftWidth: 1,
+    borderStyle: "dotted",
   },
 });
