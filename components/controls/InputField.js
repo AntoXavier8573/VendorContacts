@@ -88,7 +88,7 @@ const InputBox = (props) => {
         onLayout={onLayoutRootView}
         style={[
           styles.inputBox,
-          InputField && hoverStyle,
+          InputField && Platform.OS === "web"  && hoverStyle,
           { fontFamily: "OpenSansRegular" },
           Platform.OS === "web" && { outline: "none" },
         ]}
@@ -164,12 +164,12 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     // outlineWidth: 0,
     borderRadius: 5,
-    fontSize: Platform.OS === "web" ? 13 : 16,
+    fontSize: Platform.OS === "web" ? 13 : 15,
     backgroundColor: "rgba(0,0,0,.04)",
     color: "#51575d",
     width: "100%",
     padding: 5,
-    height: 34,
+    height: Platform.OS === "web" ? 34 : 28,
   },
 
   inputBoxLabel: {
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     top: -12,
     left: 3,
-    fontSize: 13,
+    fontSize: Platform.OS === 'web' ?13 : 12,
     color: "gray",
     paddingHorizontal: 3,
   },
