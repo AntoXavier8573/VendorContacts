@@ -37,7 +37,7 @@ export default function App() {
       );
   };
   return (
-    <ScrollContainer>
+    // <ScrollContainer>
       <View style={{ width: "100%" }}>
         {Platform.OS === 'web' && handleParamFromURL(document.location.href, "DispHeader") == 1 && (
           <View style={{ zIndex: 11 }}>
@@ -129,7 +129,7 @@ export default function App() {
         </View>
         <CustomText style={styles.pagefooter}>Page Bottom</CustomText>
       </View>
-    </ScrollContainer>
+    // </ScrollContainer>
   );
 }
 
