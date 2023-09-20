@@ -11,6 +11,7 @@ import ScrollContainer from "./components/controls/ScrollContainer";
 
 export default function App() {
   const [isNavOpen, setNavOpen] = useState({ left: false, right: false });
+  
   const fnSaveWindowSizePosition = () => {
     let JsonObj = {};
     JsonObj.Width = window.innerWidth;
@@ -38,6 +39,7 @@ export default function App() {
   };
   return (
     // <ScrollContainer>
+    <>
       <View style={{ width: "100%" }}>
         {Platform.OS === 'web' && handleParamFromURL(document.location.href, "DispHeader") == 1 && (
           <View style={{ zIndex: 11 }}>
@@ -129,6 +131,8 @@ export default function App() {
         </View>
         <CustomText style={styles.pagefooter}>Page Bottom</CustomText>
       </View>
+    </>
+
     // </ScrollContainer>
   );
 }

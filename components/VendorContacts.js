@@ -35,7 +35,10 @@ import {
 } from "./controls/CommonFunctions";
 import AntDesign from "react-native-vector-icons/AntDesign";
 import FontAwesome from "react-native-vector-icons/FontAwesome";
-import { KeyboardAwareFlatList } from "react-native-keyboard-aware-scroll-view";
+import {
+  KeyboardAwareFlatList,
+  KeyboardAwareScrollView,
+} from "react-native-keyboard-aware-scroll-view";
 import Modal from "react-native-modal";
 export default function VendorContacts() {
   const windowWidth = useWindowDimensions().width; // Using for small screen
@@ -196,10 +199,14 @@ export default function VendorContacts() {
       });
       if (window.parent != window) {
         var parentElLoader = window.parent.document.getElementById("divLoader");
-        parentElLoader.style.display = "none";
-        setTimeout(() => {
-          parentElLoader.style.display = "none";
-        }, 100);
+        //parentElLoader.style.display = "none";
+        // setint(() => {
+        //   parentElLoader.style.display = "none";
+        // }, 100);
+        setInterval(() => {
+          if (parentElLoader.style.display === "block")
+            parentElLoader.style.display = "none";
+        }, 1000);
       }
       //searchParams.get("SessionId")
       handleAPI({
@@ -254,6 +261,7 @@ export default function VendorContacts() {
   };
   // API for to load data fot Cards and Grids
   const GetVendoronload = () => {
+    //console.time('GetVendoronload')
     let qString = "",
       sParams = "";
     if (Platform.OS === "web") {
@@ -265,6 +273,9 @@ export default function VendorContacts() {
         // To handle business validation
         handleBusinessValidationMessage();
     }
+    console.log(
+      "=====================================Coming====================================="
+    );
 
     handleAPI({
       name: "Get_VendorLoanInfo",
@@ -278,6 +289,8 @@ export default function VendorContacts() {
       method: "POST",
     })
       .then((response) => {
+        //console.timeEnd('GetVendoronload')
+
         let Data = JSON.parse(response);
         //let Data = Rows;
         let sellerData = Data.filter((e) => e.ContactType === 0);
@@ -288,7 +301,7 @@ export default function VendorContacts() {
           ...sellerTabelProps,
           ["ModifiedJson"]: sellerData,
         });
-
+        //console.log("Seller Info ==>", sellerData);
         const CardResult = Data.filter((e) => e.isCard === 1);
         const GridData = Data.filter((e) => e.isCard !== 1);
 
@@ -309,7 +322,7 @@ export default function VendorContacts() {
           // CardData.push(hazardInsurance[0]);
 
           let uniqueRows = getUniqueObjectsByKey(CardData, "ContactTypename");
-          // console.log("Card info", uniqueRows);
+          console.log("Card info ==>", uniqueRows);
           let cardHighlight = handleCardValidation(uniqueRows);
           if (sellerData.length == 0) cardHighlight["0"] = true;
           setCardValidation({ ...cardValidation, ...cardHighlight }); // to show the red border in the card
@@ -395,7 +408,7 @@ export default function VendorContacts() {
             //     : false
             //   : true,
           });
-          //console.log("Grid info", OrderedObject);
+          console.log("Grid info ==>", OrderedObject);
           //setGridResult(GridData);
         }
       })
@@ -595,7 +608,7 @@ export default function VendorContacts() {
         Loanid:
           Platform.OS === "web"
             ? handleParamFromURL(document.location.href, "LoanId")
-            : 456760,
+            : queryString["LoanId"],
         // IsModified: cardInfo[index].IsNew === 1 ? 0 : 1,
         IsNew: cardInfo[index].IsNew !== 1 ? 0 : 1,
       };
@@ -633,7 +646,7 @@ export default function VendorContacts() {
     // }
   };
   //To get auto populate state/city when enters Zip code
-  const fnAutoPopulateStateCity = (value, index) => {
+  const fnAutoPopulateStateCity = (value, index, Type) => {
     handleAPI({
       name: "GetZipCodeInfo",
       params: {
@@ -643,22 +656,41 @@ export default function VendorContacts() {
     })
       .then((response) => {
         const result = JSON.parse(response);
-        setCardInfo((PrevObj) => {
-          const updateObj = [...PrevObj];
-          updateObj[index] = {
-            ...PrevObj[index],
-            ["CompanyCity"]: result[0].city,
-            ["CompanyState"]: result[0].state,
-            IsModified: 1,
-          };
-          return updateObj;
-        });
+        const { city, state } = result[0];
+        if (Type === "Seller") {
+          setSellerTabelProps((prevState) => {
+            const modifiedJson = [...prevState.ModifiedJson];
+            modifiedJson[index] = {
+              ...modifiedJson[index],
+              ["CompanyCity"]: city,
+              ["CompanyState"]: state,
+              IsModified: 1,
+              IsNew: 0,
+            };
+            return {
+              ...prevState,
+              ModifiedJson: modifiedJson,
+            };
+          });
+        } else {
+          setCardInfo((PrevObj) => {
+            const updateObj = [...PrevObj];
+            updateObj[index] = {
+              ...PrevObj[index],
+              ["CompanyCity"]: city,
+              ["CompanyState"]: state,
+              IsModified: 1,
+            };
+            return updateObj;
+          });
+        }
         console.log("auto populate result ==>", response);
       })
       .catch((e) => console.log("While auto populate  => ", e));
   };
   //Inditual card save
   const handleVendorSave = (index, TypeName) => {
+    //console.time("handleVendorSave");
     console.log("vendor card info ==>", cardInfo[index]);
     //For validation
     let mandatoryFields = [];
@@ -831,16 +863,21 @@ export default function VendorContacts() {
     }
     console.log("------------------------------------");
     console.log("Individual save initiated");
-    let JsonData = JSON.stringify(finalJson).replaceAll("#", "|H|");
+    let JsonData = JSON.stringify(finalJson).replaceAll("#", "|H|").replaceAll("&", "|A|");
     handleAPI({
       name: "Save_VendorLoanInfo_API", //"Save_VendorLoanInfo",
       params: {
-        SessionID: handleParamFromURL(document.location.href, "SessionId"),
+        SessionID:
+          Platform.OS === "web"
+            ? handleParamFromURL(document.location.href, "SessionId")
+            : queryString["SessionId"],
         SaveJson: JsonData,
       },
       method: "POST",
     })
       .then((response) => {
+        //console.timeEnd("handleVendorSave");
+
         const { SaveStatus, AgentId, VendorId } = JSON.parse(response)[0];
         console.log("Add new ==>", response);
         if (SaveStatus == "Completed") {
@@ -907,42 +944,44 @@ export default function VendorContacts() {
   };
   //Print function for hazard insurance/title for (selle and borrower)
   const fnPrintVendor = (Type) => {
-    let ReportNo = Type == 7 ? 270 : 610;
-    handleAPI({
-      name: "CreateNewSSRSReports",
-      params: {
-        LoanID: handleParamFromURL(document.location.href, "LoanId"),
-        EmpNum: queryString.EmpNum,
-        Report: ReportNo,
-        ScandocID: 0,
-        CustIDs: handleParamFromURL(document.location.href, "CustId"),
-      },
-      method: "POST",
-    })
-      .then((response) => {
-        var retval = response;
-        retval = retval.replace("%20", " ");
-        retval = retval.replace("\\", "/");
-        if (retval == "/PDF/No File Generated")
-          console.log("No File Generated");
-        else {
-          let iWidth = 1200;
-          let iHeight = 925;
-          var sURL = "";
-          sURL = "../../../pdf/" + retval;
-
-          window.open(
-            sURL,
-            "",
-            "height=" +
-              iHeight +
-              "px,width=" +
-              iWidth +
-              "px,resizable=1,scrollbars=yes"
-          );
-        }
+    if (Platform.OS === "web") {
+      let ReportNo = Type == 7 ? 270 : 610;
+      handleAPI({
+        name: "CreateNewSSRSReports",
+        params: {
+          LoanID: handleParamFromURL(document.location.href, "LoanId"),
+          EmpNum: queryString.EmpNum,
+          Report: ReportNo,
+          ScandocID: 0,
+          CustIDs: handleParamFromURL(document.location.href, "CustId"),
+        },
+        method: "POST",
       })
-      .catch((e) => console.log("Error in fnPrintVendor method => ", e));
+        .then((response) => {
+          var retval = response;
+          retval = retval.replace("%20", " ");
+          retval = retval.replace("\\", "/");
+          if (retval == "/PDF/No File Generated")
+            console.log("No File Generated");
+          else {
+            let iWidth = 1200;
+            let iHeight = 925;
+            var sURL = "";
+            sURL = "../../../pdf/" + retval;
+
+            window.open(
+              sURL,
+              "",
+              "height=" +
+                iHeight +
+                "px,width=" +
+                iWidth +
+                "px,resizable=1,scrollbars=yes"
+            );
+          }
+        })
+        .catch((e) => console.log("Error in fnPrintVendor method => ", e));
+    }
   };
   //Get searching values
   const GetTypeaheadAgentInfo = (value, type, signal, sourceType) => {
@@ -1045,6 +1084,7 @@ export default function VendorContacts() {
   };
   //Company selection
   const handleCompanySelection = (event, index, IsSame) => {
+    //console.time('handleCompanySelection')
     handleAPI({
       name: "AddNewVendorSigner",
       params: {
@@ -1064,6 +1104,8 @@ export default function VendorContacts() {
       method: "POST",
     })
       .then((response) => {
+        //console.timeEnd('handleCompanySelection')
+
         console.log("Company selection API result ==>", response);
         const finalJson = JSON.parse(response);
         setData({});
@@ -1199,6 +1241,7 @@ export default function VendorContacts() {
   };
   //Seller selection
   const handleSellerSelection = (event) => {
+    //console.time('handleSellerSelection')
     handleAPI({
       name: "AddNewSigner",
       params: {
@@ -1211,13 +1254,16 @@ export default function VendorContacts() {
       method: "POST",
     })
       .then((response) => {
+        //console.timeEnd('handleSellerSelection')
         console.log("Seller selection API result ==>", response);
         const Response = JSON.parse(response);
         setSellerInfo({ ...sellerInfo, RowData: Response });
         setSellerTabelProps({
           ...sellerTabelProps,
           ["ModifiedJson"]: Response,
+          EditRow: {},
         });
+
         setCardValidation({ ...cardValidation, 0: false });
         setData({});
         setInput({});
@@ -1478,6 +1524,7 @@ export default function VendorContacts() {
   //TO remove company or seller
   const handleRemoveSellerOrAgent = (Data, value) => {
     console.log("remove info", Data);
+    //console.time('handleRemoveSellerOrAgent')
     if (Data.ContactSourceType === "S") {
       let Result = [];
       // if (Data.AgentID == 0)
@@ -1634,6 +1681,8 @@ export default function VendorContacts() {
       method: "POST",
     })
       .then((response) => {
+        //console.timeEnd('handleRemoveSellerOrAgent')
+
         //This part has moved to before the API request
         // To handle business validation
         handleBusinessValidationMessage();
@@ -1690,7 +1739,14 @@ export default function VendorContacts() {
           LastName: "",
           Phone: "",
           AgentEmail: "",
-          Loanid: handleParamFromURL(document.location.href, "LoanId"),
+          CompanyZip: "",
+          CompanyState: "",
+          CompanyCity: "",
+          CompanyStreetAddr: "",
+          Loanid:
+            Platform.OS === "web"
+              ? handleParamFromURL(document.location.href, "LoanId")
+              : queryString["LoanId"],
           VendorId: 0,
           isCard: 1,
         },
@@ -1725,7 +1781,10 @@ export default function VendorContacts() {
         {
           ["ContactType"]: item.ActualType,
           ["ContactTypename"]: result[index].ContactTypename,
-          ["Loanid"]: handleParamFromURL(document.location.href, "LoanId"),
+          ["Loanid"]:
+            Platform.OS == "web"
+              ? handleParamFromURL(document.location.href, "LoanId")
+              : queryString["LoanId"],
           ["isCard"]: 1,
           ["Companyname"]: "",
           ["FirstName"]: "",
@@ -1842,13 +1901,13 @@ export default function VendorContacts() {
       updateObj[index] = {
         ...updateObj[index],
         ["FileNumber"]: result[index]["FileNumber"],
-        ['IsModified']:0
+        ["IsModified"]: 0,
       };
       return updateObj;
     });
   };
   const handleParentWindow = (Type) => {
-    if (window.parent != window) {
+    if (window.parent != window && Platform.OS === "web") {
       var parentEleBtn = window.parent.document.getElementById("btnSave");
       var parentElLoader = window.parent.document.getElementById("divLoader");
       parentElLoader.style.display = "none";
@@ -1864,8 +1923,9 @@ export default function VendorContacts() {
     }
   };
   const handleParentWindowSave = () => {
+    //console.time('handleParentWindowSave')
     handleParentWindow("Disable");
-    
+
     setResult(cardInfo); // To append the edited value in the view mode
     console.log("bulk save ==>", cardInfo);
     let ModifiedCard = cardInfo.filter((e) => e.IsModified == 1);
@@ -1874,16 +1934,13 @@ export default function VendorContacts() {
       (e) => e.IsModified == 1
     );
     let finalJson = [...ModifiedCard, ...ModifiedGrid, ...ModifiedNonBorr];
-    let mandatoryFields = [
-      "Companyname",
-      "FirstName",
-      "LastName",
-    ],isBlockSave = 0
-    isBlockSave = finalJson.filter(obj =>
-      mandatoryFields.some(key => !obj[key])
+    let mandatoryFields = ["Companyname", "FirstName", "LastName"],
+      isBlockSave = 0;
+    isBlockSave = finalJson.filter((obj) =>
+      mandatoryFields.some((key) => !obj[key])
     );
-    let JsonData = JSON.stringify(finalJson).replaceAll("#", "|H|");
-    if(isBlockSave.length > 0) return;
+    let JsonData = JSON.stringify(finalJson).replaceAll("#", "|H|").replaceAll("&", "|A|");
+    if (isBlockSave.length > 0 && ModifiedGrid.length == 0) return;
     const parentElLoader = window.parent.document.getElementById("divLoader");
     parentElLoader.style.display = "block";
     handleAPI({
@@ -1895,6 +1952,8 @@ export default function VendorContacts() {
       method: "POST",
     })
       .then((response) => {
+        //console.timeEnd('handleParentWindowSave')
+
         if (response !== "Errored") {
           // This part is moved to before the API request for perform
           handlePageLoad();
@@ -1977,7 +2036,10 @@ export default function VendorContacts() {
     handleAPI({
       name: "OnChangeWarehouseBankList",
       params: {
-        LoanId: handleParamFromURL(document.location.href, "LoanId"),
+        LoanId:
+          Platform.OS == "web"
+            ? handleParamFromURL(document.location.href, "LoanId")
+            : queryString["LoanId"],
         VendorId: item.value,
         Empnum: queryString["EmpNum"],
       },
@@ -2012,7 +2074,10 @@ export default function VendorContacts() {
         ContactSourceType: "N",
         ContactTypename: "Non-Borrowing Signers",
         AgentID: `-9999${tabelProps["NonBorroweRows"].length}`,
-        Loanid: handleParamFromURL(document.location.href, "LoanId"),
+        Loanid:
+          Platform.OS === "web"
+            ? handleParamFromURL(document.location.href, "LoanId")
+            : queryString["LoanId"],
         IsNew: 1,
       },
     ];
@@ -2042,7 +2107,10 @@ export default function VendorContacts() {
           handleAPI({
             name: "RemoveNonBorrower",
             params: {
-              LoanId: handleParamFromURL(document.location.href, "LoanId"),
+              LoanId:
+                Platform.OS === "web"
+                  ? handleParamFromURL(document.location.href, "LoanId")
+                  : queryString["LoanId"],
               Type: 1,
               SignerId: tabelProps["NonBorroweRows"][index].AgentID,
             },
@@ -2083,7 +2151,10 @@ export default function VendorContacts() {
             //"AgentLicense",
             //"CompanyLicense",
           ];
-          if ([7, 2, 4, 17].includes(item["ContactType"]) && queryString['Page'] !== 'HazardInsurance') {
+          if (
+            [7, 2, 4, 17].includes(item["ContactType"]) &&
+            queryString["Page"] !== "HazardInsurance"
+          ) {
             // 48,49 removed since these two not mandatory
             Keys.push("FileNumber");
           }
@@ -2274,12 +2345,14 @@ export default function VendorContacts() {
               style={[
                 [styles.buttonContainer],
                 {
-                  width: Platform.OS === "web" ? "fit-content" : 70,
+                  width: Platform.OS === "web" ? "fit-content" : 90,
                   margin: 10,
                 },
               ]}
             >
-              <CustomText style={[styles["btn"]]}>{"Add New"}</CustomText>
+              <CustomText style={[[styles["btn"]], { alignSelf: "center" }]}>
+                {"Add New"}
+              </CustomText>
             </TouchableOpacity>
           )
         )
@@ -2304,6 +2377,14 @@ export default function VendorContacts() {
                 : -11,
             padding: rowData["ContactType"] === 999 ? 0 : 10,
           },
+          Platform.select({
+            android: {
+              width: "100%",
+            },
+            ios: {
+              width: "100%",
+            },
+          }),
         ]}
       >
         {(tabelProps.IsShowAppraiserSearch &&
@@ -2321,10 +2402,24 @@ export default function VendorContacts() {
             data={[
               <View
                 style={[
-                  Platform.OS !== "web" && {
-                    flexDirection: "row",
-                  },
+                  // Platform.OS !== "web" &&
+                  //   {
+                  //     // flexDirection: "row",
+                  //   },
                   { width: 320 },
+                  Platform.select({
+                    web: {
+                      width: 320,
+                    },
+                    android: {
+                      paddingTop: 5,
+                      paddingBottom: 5,
+                    },
+                    ios: {
+                      paddingTop: 5,
+                      paddingBottom: 5,
+                    },
+                  }),
                 ]}
               >
                 <InputField
@@ -2353,7 +2448,7 @@ export default function VendorContacts() {
                 <CustomText
                   style={{
                     position: "absolute",
-                    right: 0,
+                    right: 10,
                     top: 20,
                   }}
                 >
@@ -2403,8 +2498,9 @@ export default function VendorContacts() {
                   <FlatList
                     style={[styles["search-drop-down"], {}]}
                     data={AutoCompdata[rowData["ContactType"]]}
-                    showsVerticalScrollIndicator={true}
-                    removeClippedSubviews={true}
+                    // showsVerticalScrollIndicator={true}
+                    // removeClippedSubviews={true}
+                    nestedScrollEnabled={true}
                     ref={flatListRef}
                     renderItem={({ item, index: i }) => (
                       <Pressable
@@ -2488,9 +2584,11 @@ export default function VendorContacts() {
           <Cell
             width={120}
             key={"cell1"}
-            style={{
-              display: rowData["ContactType"] == 999 ? "none" : "block",
-            }}
+            style={Platform.select({
+              web: {
+                display: rowData["ContactType"] == 999 ? "none" : "block",
+              },
+            })}
             data={[
               <View>
                 {[3, 52, 56].includes(rowData["ContactType"]) ? (
@@ -2534,62 +2632,13 @@ export default function VendorContacts() {
                         >
                           {rowData.ContactTypename}:
                         </CustomText>
-                        {/* {index !== -1 && (
-                          <CustomText
-                            style={{
-                              position: "relative",
-                              right: -15,
-                              top: -17,
-                            }}
-                          >
-                            <FontAwesome
-                              name="close"
-                              style={[
-                                styles["modal-close"],
-                                {
-                                  color: "red",
-                                  cursor: "pointer",
-                                  opacity: 0.8,
-                                  top: -2,
-                                },
-                              ]}
-                              strokeWidth={30}
-                              size={17}
-                              color={"black"}
-                              onPress={(event) => {
-                                if (rowData["ContactType"] === 52)
-                                  setTableProps({
-                                    ...tabelProps,
-                                    IsShowNotarySearch: true,
-                                  });
-                                else if (rowData["ContactType"] === 56)
-                                  setTableProps({
-                                    ...tabelProps,
-                                    IsShowCondoPUDSearch: true,
-                                  });
-                                else handleRemoveAppraiser(rowData, index);
-                              }}
-                            />
-                          </CustomText>
-                        )} */}
                       </View>
                       <CustomText
                         style={[
                           styles["card-text-underline"],
                           { fontSize: 12 },
                         ]}
-                        onPress={
-                          (e) => fnOpenVendorPage(rowData)
-                          // handleWebPageOpen(
-                          //   rowData,
-                          //   Platform.OS === "web" &&
-                          //     handleParamFromURL(
-                          //       document.location.href,
-                          //       "SessionId"
-                          //     ),
-                          //   "http://www.solutioncenter.biz/VendorChanges/Presentation/Webforms/VendorInfoChangeRequest_bootstrap.aspx?SessionId="
-                          // )
-                        }
+                        onPress={(e) => fnOpenVendorPage(rowData)}
                       >
                         {rowData.AgentFN}
                       </CustomText>
@@ -2610,19 +2659,21 @@ export default function VendorContacts() {
         )}
 
         <Cell
-          style={{
-            display:
-              (rowData["IsButton"] && index === -1) ||
-              //index === -1 ||
-              (tabelProps["showWareHouseOption"] &&
-                rowData["ContactType"] === 19) ||
-              (rowData["ContactType"] === 52 &&
-                tabelProps["IsShowNotarySearch"]) ||
-              (rowData["ContactType"] === 56 &&
-                tabelProps["IsShowCondoPUDSearch"])
-                ? "none"
-                : "block",
-          }}
+          style={Platform.select({
+            web: {
+              display:
+                (rowData["IsButton"] && index === -1) ||
+                //index === -1 ||
+                (tabelProps["showWareHouseOption"] &&
+                  rowData["ContactType"] === 19) ||
+                (rowData["ContactType"] === 52 &&
+                  tabelProps["IsShowNotarySearch"]) ||
+                (rowData["ContactType"] === 56 &&
+                  tabelProps["IsShowCondoPUDSearch"])
+                  ? "none"
+                  : "block",
+            },
+          })}
           width={130}
           data={[
             <View>
@@ -2651,39 +2702,20 @@ export default function VendorContacts() {
                     </CustomText>
                   </View>
                 )}
-                {/* {[17].includes(rowData["ContactType"]) && (
-                  <View>
-                    <CustomText
-                      bold={true}
-                      style={{
-                        fontSize: 12,
-                        color: "#4b545d",
-                      }}
-                    >
-                      {"Agent Expiration: "}
-                    </CustomText>
-                    <CustomText
-                      style={{
-                        fontSize: 12,
-                        color: "#6c757d",
-                      }}
-                    >
-                      {"01/01/2200"}
-                    </CustomText>
-                  </View>
-                )} */}
               </CustomText>
             </View>,
           ]}
           // textStyle={styles["table-text"]}
         />
         <Cell
-          style={{
-            display:
-              tabelProps.IsShowAppraiserSearch && rowData["ContactType"] === 3
-                ? "none"
-                : "block",
-          }}
+          style={Platform.select({
+            web: {
+              display:
+                tabelProps.IsShowAppraiserSearch && rowData["ContactType"] === 3
+                  ? "none"
+                  : "block",
+            },
+          })}
           width={
             tabelProps["showWareHouseOption"] && rowData["ContactType"] === 19
               ? 180
@@ -2758,59 +2790,12 @@ export default function VendorContacts() {
                   )}
                   {index !== -1 &&
                     [3, 52, 56].includes(rowData["ContactType"]) && (
-                      // <CustomText
-                      //   style={{
-                      //     position: "relative",
-                      //     right: -15,
-                      //     top: -17,
-                      //   }}
-                      // >
-                      //   <FontAwesome
-                      //     name="close"
-                      //     style={[
-                      //       styles["modal-close"],
-                      //       {
-                      //         color: "red",
-                      //         cursor: "pointer",
-                      //         opacity: 0.8,
-                      //         top: -2,
-                      //       },
-                      //     ]}
-                      //     strokeWidth={30}
-                      //     size={17}
-                      //     color={"black"}
-                      //     onPress={(event) => {
-                      //       if (rowData["ContactType"] === 52)
-                      //         setTableProps({
-                      //           ...tabelProps,
-                      //           IsShowNotarySearch: true,
-                      //         });
-                      //       else if (rowData["ContactType"] === 56)
-                      //         setTableProps({
-                      //           ...tabelProps,
-                      //           IsShowCondoPUDSearch: true,
-                      //         });
-                      //       else handleRemoveAppraiser(rowData, index);
-                      //     }}
-                      //   />
-                      // </CustomText>
                       <TouchableOpacity
                         style={[
                           [styles.buttonContainer],
                           { marginTop: 5, width: 60 },
                         ]}
                         onPress={(event) => {
-                          // if (rowData["ContactType"] === 52)
-                          //   setTableProps({
-                          //     ...tabelProps,
-                          //     IsShowNotarySearch: true,
-                          //   });
-                          // else if (rowData["ContactType"] === 56)
-                          //   setTableProps({
-                          //     ...tabelProps,
-                          //     IsShowCondoPUDSearch: true,
-                          //   });
-                          // else
                           handleRemoveAppraiser(rowData, index);
                         }}
                       >
@@ -3020,7 +3005,7 @@ export default function VendorContacts() {
                             <>
                               {!editCard[row["ContactType"]] &&
                                 !editCompany[row["ContactType"]] && (
-                                  <View style={styles["btn"]}>
+                                  <View style={[styles["btn"]]}>
                                     {!otherProps["remove-" + index] ? (
                                       <>
                                         <TouchableOpacity
@@ -3244,6 +3229,9 @@ export default function VendorContacts() {
                                 android: {
                                   width: "100%",
                                 },
+                                ios: {
+                                  width: "100%",
+                                },
                               }),
                             ]}
                           >
@@ -3251,10 +3239,17 @@ export default function VendorContacts() {
                               <>
                                 {index < 3 && (
                                   <View
+                                    key={index}
                                     style={[
                                       { gap: 4 },
                                       Platform.select({
                                         android: {
+                                          width: "29%",
+                                          marginLeft: 5,
+                                          marginRight: 5,
+                                          gap: 5,
+                                        },
+                                        ios: {
                                           width: "29%",
                                           marginLeft: 5,
                                           marginRight: 5,
@@ -3419,6 +3414,22 @@ export default function VendorContacts() {
                                         </View>
                                         <View>
                                           <CustomText>{e.Phone}</CustomText>
+                                        </View>
+                                        <View>
+                                          <View>
+                                            <CustomText>
+                                              {e.CompanyStreetAddr}
+                                            </CustomText>
+                                          </View>
+                                          <View>
+                                            <CustomText>
+                                              {`${e.CompanyCity}${
+                                                e.CompanyCity && ","
+                                              } ${e.CompanyState} ${
+                                                e.CompanyZip
+                                              }`}
+                                            </CustomText>
+                                          </View>
                                         </View>
                                       </>
                                     )}
@@ -3592,13 +3603,30 @@ export default function VendorContacts() {
                                   ]
                                     ? "repeat(1,1fr)"
                                     : "repeat(2,1fr)",
-                                  width:
-                                    Platform.OS !== "web"
-                                      ? editCompany[row["ContactType"]]
-                                        ? "98%"
-                                        : "50%"
-                                      : null,
+                                  // width:
+                                  //   Platform.OS !== "web"
+                                  //     ? editCompany[row["ContactType"]]
+                                  //       ? "98%"
+                                  //       : "50%"
+                                  //     : null,
                                 },
+                                Platform.select({
+                                  // web: {
+                                  //   width: editCompany[row["ContactType"]]
+                                  //     ? "98%"
+                                  //     : "50%",
+                                  // },
+                                  android: {
+                                    width: editCompany[row["ContactType"]]
+                                      ? "98%"
+                                      : "47%",
+                                  },
+                                  ios: {
+                                    width: editCompany[row["ContactType"]]
+                                      ? "98%"
+                                      : "47%",
+                                  },
+                                }),
                               ]}
                             >
                               <>
@@ -3748,7 +3776,7 @@ export default function VendorContacts() {
                                               data={
                                                 AutoCompdata[row["ContactType"]]
                                               }
-                                               nestedScrollEnabled={true}
+                                              nestedScrollEnabled={true}
                                               // showsVerticalScrollIndicator={
                                               //   true
                                               // }
@@ -4092,7 +4120,7 @@ export default function VendorContacts() {
                                     {/* {row.Phone !== "" && ( */}
                                     <View style={styles["card-item"]}>
                                       {/* <CustomText
-                                      
+
                                       >
                                         {row.Phone}
                                       </CustomText> */}
@@ -4113,7 +4141,7 @@ export default function VendorContacts() {
                                     {/* )} */}
                                     <View style={styles["card-item"]}>
                                       {/* <CustomText
-                                    
+
                                     >
                                       {row.AgentEmail}
                                     </CustomText> */}
@@ -4183,6 +4211,9 @@ export default function VendorContacts() {
                                   android: {
                                     paddingTop: 5,
                                   },
+                                  ios: {
+                                    paddingTop: 5,
+                                  },
                                 }),
                               ]}
                             >
@@ -4193,7 +4224,7 @@ export default function VendorContacts() {
                                   {
                                     flexBasis:
                                       Platform.OS !== "web"
-                                        ? width * 2 + 20
+                                        ? width * 2 + 40
                                         : null,
                                   },
                                 ]}
@@ -4239,6 +4270,9 @@ export default function VendorContacts() {
                                   android: {
                                     paddingTop: 5,
                                   },
+                                  ios: {
+                                    paddingTop: 5,
+                                  },
                                 }),
                               ]}
                             >
@@ -4246,6 +4280,10 @@ export default function VendorContacts() {
                                 style={[
                                   styles["card-input"],
                                   styles["card-item"],
+                                  {
+                                    flexBasis:
+                                      Platform.OS !== "web" ? width + 20 : null,
+                                  },
                                 ]}
                               >
                                 <InputField
@@ -4303,6 +4341,9 @@ export default function VendorContacts() {
                                 },
                                 Platform.select({
                                   android: {
+                                    paddingTop: 5,
+                                  },
+                                  ios: {
                                     paddingTop: 5,
                                   },
                                 }),
@@ -4385,6 +4426,9 @@ export default function VendorContacts() {
                                   android: {
                                     paddingTop: 5,
                                   },
+                                  ios: {
+                                    paddingTop: 5,
+                                  },
                                 }),
                               ]}
                             >
@@ -4436,6 +4480,9 @@ export default function VendorContacts() {
                                 },
                                 Platform.select({
                                   android: {
+                                    paddingTop: 5,
+                                  },
+                                  ios: {
                                     paddingTop: 5,
                                   },
                                 }),
@@ -4495,7 +4542,8 @@ export default function VendorContacts() {
                                   onBlur={(e) => {
                                     fnAutoPopulateStateCity(
                                       cardInfo[index]["CompanyZip"],
-                                      index
+                                      index,
+                                      "Vendor"
                                     );
                                   }}
                                 />
@@ -4511,6 +4559,9 @@ export default function VendorContacts() {
                                   android: {
                                     paddingTop: 5,
                                   },
+                                  ios: {
+                                    paddingTop: 5,
+                                  },
                                 }),
                               ]}
                             >
@@ -4518,6 +4569,10 @@ export default function VendorContacts() {
                                 style={[
                                   styles["card-input"],
                                   styles["card-item"],
+                                  {
+                                    flexBasis:
+                                      Platform.OS !== "web" ? width + 20 : null,
+                                  },
                                 ]}
                               >
                                 <InputField
@@ -4583,6 +4638,10 @@ export default function VendorContacts() {
                                 style={[
                                   styles["card-input"],
                                   styles["card-item"],
+                                  {
+                                    flexBasis:
+                                      Platform.OS !== "web" ? width + 20 : null,
+                                  },
                                 ]}
                               >
                                 <InputField
@@ -4623,6 +4682,10 @@ export default function VendorContacts() {
                                 style={[
                                   styles["card-input"],
                                   styles["card-item"],
+                                  {
+                                    flexBasis:
+                                      Platform.OS !== "web" ? width + 20 : null,
+                                  },
                                 ]}
                               ></View>
                             </View>
@@ -4636,6 +4699,9 @@ export default function VendorContacts() {
                                   android: {
                                     paddingTop: 5,
                                   },
+                                  ios: {
+                                    paddingTop: 5,
+                                  },
                                 }),
                               ]}
                             >
@@ -4645,6 +4711,12 @@ export default function VendorContacts() {
                                     style={[
                                       styles["card-input"],
                                       styles["card-item"],
+                                      {
+                                        flexBasis:
+                                          Platform.OS !== "web"
+                                            ? width + 20
+                                            : null,
+                                      },
                                     ]}
                                   >
                                     <InputField
@@ -4694,6 +4766,9 @@ export default function VendorContacts() {
                                   android: {
                                     paddingTop: 5,
                                   },
+                                  ios: {
+                                    paddingTop: 5,
+                                  },
                                 }),
                               ]}
                             >
@@ -4705,6 +4780,12 @@ export default function VendorContacts() {
                                     style={[
                                       styles["card-input"],
                                       styles["card-item"],
+                                      {
+                                        flexBasis:
+                                          Platform.OS !== "web"
+                                            ? width + 20
+                                            : null,
+                                      },
                                     ]}
                                   >
                                     <InputField
@@ -4771,6 +4852,14 @@ export default function VendorContacts() {
                             style={[
                               [styles.buttonContainer],
                               { alignSelf: "center", padding: 5 },
+                              Platform.select({
+                                android: {
+                                  maxWidth: "50%",
+                                },
+                                ios: {
+                                  maxWidth: "50%",
+                                },
+                              }),
                             ]}
                           >
                             <CustomText style={[styles["btn"]]}>
@@ -4868,7 +4957,9 @@ export default function VendorContacts() {
                   </View>
                 </View>
               ))}
-              <View style={{ display: Platform.OS === 'web' ? "none" :'flex' }}>
+              <View
+                style={{ display: Platform.OS === "web" ? "none" : "none" }}
+              >
                 <Button
                   onPress={handleParentWindowSave}
                   title={"Parent Save"}
@@ -4880,115 +4971,116 @@ export default function VendorContacts() {
             {Platform.OS === "web" &&
               handleParamFromURL(document.location.href, "ViewType") == "1" && (
                 <View style={styles["table-container"]}>
-                  <ScrollView>
-                    <Table
-                      borderStyle={{
-                        borderWidth: 1,
-                        borderColor: "transparent",
-                      }}
-                    >
-                      <Row
-                        data={tabelProps.tableHead}
-                        widthArr={[120, 130, 90, 110]}
-                        style={[styles["table-head"], { color: "#999" }]}
-                        textStyle={[styles["table-text"], { color: "#fff" }]}
-                        // textStyle={[styles["table-text"], { color: "#fff" }]}
-                      />
+                  {/* <ScrollView> */}
+                  <Table
+                    borderStyle={{
+                      borderWidth: 1,
+                      borderColor: "transparent",
+                    }}
+                    style={styles["table-scroll"]}
+                  >
+                    <Row
+                      data={tabelProps.tableHead}
+                      widthArr={[120, 130, 90, 110]}
+                      style={[styles["table-head"], { color: "#999" }]}
+                      textStyle={[styles["table-text"], { color: "#fff" }]}
+                      // textStyle={[styles["table-text"], { color: "#fff" }]}
+                    />
 
-                      {tabelProps.tableData.map((rowData, index) => (
-                        <>
-                          {([9, 19].includes(rowData["ContactType"]) &&
-                            queryString["IsEditRights"] == 1) ||
-                          ![9, 19].includes(rowData["ContactType"])
-                            ? rowData["ContactType"] == 3 // Appraiser
-                              ? tabelProps.AppraiserRows.map((rowData, i) => {
-                                  let Rows = [];
-                                  if (
-                                    i === 0 &&
-                                    queryString["SignOffLevel"] > 4
-                                  ) {
-                                    rowData["IsButton"] = true;
-                                    Rows.push(CustomTableRow(rowData, -1));
-                                  }
-                                  if (
-                                    tabelProps.AppraiserRows[0]["AgentID"] !=
-                                      -1 &&
-                                    tabelProps.AppraiserRows[0]["AgentID"] != 0
-                                  )
-                                    Rows.push(CustomTableRow(rowData, i));
-
-                                  return (
-                                    <View
-                                      style={{
-                                        zIndex: i > 0 ? -11 : -1,
-                                        borderColor: "black",
-                                        borderWidth: 2,
-                                        borderTopWidth: i !== 0 ? 0 : 2,
-                                        borderBottomWidth:
-                                          i ===
-                                          tabelProps.AppraiserRows.length - 1
-                                            ? 2
-                                            : 0,
-                                      }}
-                                    >
-                                      {Rows}
-                                    </View>
-                                  );
-                                  //return Rows;
-                                })
-                              : rowData["ContactType"] == 999 // Non-Borrower
-                              ? tabelProps.NonBorroweRows.map((rowData, i) => {
-                                  let Rows = [],
-                                    Agent =
-                                      tabelProps.NonBorroweRows[0]["AgentID"];
-                                  if (i === 0) {
-                                    rowData["IsButton"] = true;
-                                    Rows.push(CustomTableRow(rowData, -1));
-                                  }
-                                  if (
-                                    i != 0 &&
-                                    Agent !== 0 &&
-                                    tabelProps.NonBorroweRows.length != 1
-                                  )
-                                    Rows.push(CustomTableRow(rowData, i));
-                                  return (
-                                    <View
-                                      style={{
-                                        zIndex: -1,
-                                        borderColor: "black",
-                                        borderWidth: 2,
-                                        marginTop: 2,
-
-                                        borderTopWidth: i !== 0 ? 0 : 2,
-                                        borderBottomWidth:
-                                          i ===
-                                          tabelProps.NonBorroweRows.length - 1
-                                            ? 2
-                                            : 0,
-                                      }}
-                                    >
-                                      {Rows}
-                                    </View>
-                                  );
-                                })
-                              : rowData["ContactType"] == 52 // Notary
-                              ? CustomTableRow(
-                                  rowData,
-                                  !rowData["AgentID"] ? -1 : index
+                    {tabelProps.tableData.map((rowData, index) => (
+                      <>
+                        {([9, 19].includes(rowData["ContactType"]) &&
+                          queryString["IsEditRights"] == 1) ||
+                        ![9, 19].includes(rowData["ContactType"])
+                          ? rowData["ContactType"] == 3 // Appraiser
+                            ? tabelProps.AppraiserRows.map((rowData, i) => {
+                                let Rows = [];
+                                if (
+                                  i === 0 &&
+                                  queryString["SignOffLevel"] > 4
+                                ) {
+                                  rowData["IsButton"] = true;
+                                  Rows.push(CustomTableRow(rowData, -1));
+                                }
+                                if (
+                                  tabelProps.AppraiserRows[0]["AgentID"] !=
+                                    -1 &&
+                                  tabelProps.AppraiserRows[0]["AgentID"] != 0
                                 )
-                              : rowData["ContactType"] == 56 && // Condo PUD
-                                rowData["DisplaySeller"] == 1
-                              ? CustomTableRow(
-                                  rowData,
-                                  !rowData["AgentID"] ? -1 : index
+                                  Rows.push(CustomTableRow(rowData, i));
+
+                                return (
+                                  <View
+                                    style={{
+                                      zIndex: i > 0 ? -11 : -1,
+                                      borderColor: "#000", // Black
+                                      borderWidth: 2,
+                                      borderTopWidth: i !== 0 ? 0 : 2,
+                                      borderBottomWidth:
+                                        i ===
+                                        tabelProps.AppraiserRows.length - 1
+                                          ? 2
+                                          : 0,
+                                    }}
+                                  >
+                                    {Rows}
+                                  </View>
+                                );
+                                //return Rows;
+                              })
+                            : rowData["ContactType"] == 999 // Non-Borrower
+                            ? tabelProps.NonBorroweRows.map((rowData, i) => {
+                                let Rows = [],
+                                  Agent =
+                                    tabelProps.NonBorroweRows[0]["AgentID"];
+                                if (i === 0) {
+                                  rowData["IsButton"] = true;
+                                  Rows.push(CustomTableRow(rowData, -1));
+                                }
+                                if (
+                                  i != 0 &&
+                                  Agent !== 0 &&
+                                  tabelProps.NonBorroweRows.length != 1
                                 )
-                              : rowData["ContactType"] !== 56 && // Other categories
-                                CustomTableRow(rowData, index)
-                            : null}
-                        </>
-                      ))}
-                    </Table>
-                  </ScrollView>
+                                  Rows.push(CustomTableRow(rowData, i));
+                                return (
+                                  <View
+                                    style={{
+                                      zIndex: -1,
+                                      borderColor: "black",
+                                      borderWidth: 2,
+                                      marginTop: 2,
+
+                                      borderTopWidth: i !== 0 ? 0 : 2,
+                                      borderBottomWidth:
+                                        i ===
+                                        tabelProps.NonBorroweRows.length - 1
+                                          ? 2
+                                          : 0,
+                                    }}
+                                  >
+                                    {Rows}
+                                  </View>
+                                );
+                              })
+                            : rowData["ContactType"] == 52 // Notary
+                            ? CustomTableRow(
+                                rowData,
+                                !rowData["AgentID"] ? -1 : index
+                              )
+                            : rowData["ContactType"] == 56 && // Condo PUD
+                              rowData["DisplaySeller"] == 1
+                            ? CustomTableRow(
+                                rowData,
+                                !rowData["AgentID"] ? -1 : index
+                              )
+                            : rowData["ContactType"] !== 56 && // Other categories
+                              CustomTableRow(rowData, index)
+                          : null}
+                      </>
+                    ))}
+                  </Table>
+                  {/* </ScrollView> */}
                 </View>
               )}
             {/* Modal Section */}
@@ -5007,7 +5099,19 @@ export default function VendorContacts() {
                   //minWidth: Platform.OS === "web" ? "500px" : null,
                   margin: 45,
                   flex: null,
-                  alignSelf: Platform.OS === "web" ? "center" : null,
+                  ...Platform.select({
+                    web: {
+                      alignSelf: "center",
+                    },
+                    android: {
+                      width: "96%",
+                      alignSelf: "center",
+                    },
+                    ios: {
+                      width: "96%",
+                      alignSelf: "center",
+                    },
+                  }),
                 }}
               >
                 <View>
@@ -5030,20 +5134,27 @@ export default function VendorContacts() {
                   <View style={styles["modal-container"]}>
                     <View
                       style={[
-                        Platform.OS !== "web" && {
-                          flexDirection: "row",
-                        },
-                        { width: 430 },
+                        // Platform.OS !== "web" && {
+                        //    width: 430
+                        // },
+                        Platform.select({
+                          android: {
+                            width: "95%",
+                          },
+                          ios: {
+                            width: "95%",
+                          },
+                        }),
+                        // { width: 430 },
                       ]}
                     >
                       <View
                         style={[
                           styles["card-input"],
                           // styles["card-item"],
-                          Platform.OS !== "web" && {
-                            flexDirection: "row",
+                          Platform.OS === "web" && {
+                            width: 420,
                           },
-                          { width: 420 },
                         ]}
                       >
                         <InputField
@@ -5074,7 +5185,9 @@ export default function VendorContacts() {
                           }}
                         >
                           {otherProps["0"] && (
-                            <View style={{ right: 30 }}>
+                            <View
+                              style={{ right: Platform.OS === "web" ? 30 : 0 }}
+                            >
                               <ArrowSpinner />
                             </View>
                           )}
@@ -5140,39 +5253,67 @@ export default function VendorContacts() {
                           data={[
                             <View
                               style={{
-                                fontSize: 11,
-                                color: "#fff",
                                 marginBottom: 5,
                               }}
                             >
                               <View>
-                                <CustomText>{"First Name"}</CustomText>
+                                <CustomText
+                                  style={{ fontSize: 11, color: "#fff" }}
+                                >
+                                  {"First Name"}
+                                </CustomText>
                               </View>
                               <View style={{ marginTop: 5 }}>
-                                <CustomText>{"Last Name"}</CustomText>
+                                <CustomText
+                                  style={{ fontSize: 11, color: "#fff" }}
+                                >
+                                  {"Last Name"}
+                                </CustomText>
                               </View>
                             </View>,
                           ]}
                           style={[styles["Grid-Cell-Border"], { width: 76 }]}
                         ></Cell>
                         <Cell
-                          style={[styles["Grid-Cell-Border"], { width: 205 }]}
+                          style={[
+                            styles["Grid-Cell-Border"],
+                            { width: Platform.OS === "web" ? 205 : 150 },
+                          ]}
                           data={[
-                            <View style={{ fontSize: 11, color: "#fff" }}>
+                            <View>
                               <View>
-                                <CustomText>{"Entity Name"}</CustomText>
+                                <CustomText
+                                  style={{ fontSize: 11, color: "#fff" }}
+                                >
+                                  {"Entity Name"}
+                                </CustomText>
+                              </View>
+                              <View style={{ marginTop: 5 }}>
+                                <CustomText
+                                  style={{ fontSize: 11, color: "#fff" }}
+                                >
+                                  {"Address"}
+                                </CustomText>
                               </View>
                             </View>,
                           ]}
                         ></Cell>
                         <Cell
                           data={[
-                            <View style={{ fontSize: 11, color: "#fff" }}>
+                            <View>
                               <View>
-                                <CustomText>{"Cell Phone"}</CustomText>
+                                <CustomText
+                                  style={{ fontSize: 11, color: "#fff" }}
+                                >
+                                  {"Cell Phone"}
+                                </CustomText>
                               </View>
                               <View style={{ marginTop: 5 }}>
-                                <CustomText>{"Email"}</CustomText>
+                                <CustomText
+                                  style={{ fontSize: 11, color: "#fff" }}
+                                >
+                                  {"Email"}
+                                </CustomText>
                               </View>
                             </View>,
                           ]}
@@ -5208,9 +5349,8 @@ export default function VendorContacts() {
                                   key={"cell1"}
                                   style={[
                                     Platform.select({
-                                      web:{ display: "block" },
-                                    })
-                                    ,
+                                      web: { display: "block" },
+                                    }),
                                     styles["Grid-Cell-Border"],
                                   ]}
                                   data={[
@@ -5250,21 +5390,53 @@ export default function VendorContacts() {
                                 ]}
                               /> */}
                                 <Cell
-                                  width={205}
+                                  width={Platform.OS === "web" ? 205 : 150}
                                   key={"cell2"}
                                   style={[
                                     Platform.select({
-                                      web:{ display: "block" },
-                                    })
-                                    ,
+                                      web: { display: "block" },
+                                    }),
                                     styles["Grid-Cell-Border"],
                                   ]}
                                   data={[
-                                    <CustomText
-                                      style={{ fontSize: 11, color: "#4b545d" }}
-                                    >
-                                      {rowData.Companyname}
-                                    </CustomText>,
+                                    <View>
+                                      <View>
+                                        <CustomText
+                                          style={{
+                                            fontSize: 11,
+                                            color: "#4b545d",
+                                          }}
+                                        >
+                                          {rowData.Companyname}
+                                        </CustomText>
+                                      </View>
+                                      <View style={{ marginTop: 5 }}>
+                                        <View>
+                                          <CustomText
+                                            style={{
+                                              fontSize: 11,
+                                              color: "#4b545d",
+                                            }}
+                                          >
+                                            {`${rowData.CompanyStreetAddr}`}
+                                          </CustomText>
+                                        </View>
+                                        <View>
+                                          <CustomText
+                                            style={{
+                                              fontSize: 11,
+                                              color: "#4b545d",
+                                            }}
+                                          >
+                                            {`${rowData.CompanyCity}${
+                                              rowData.CompanyCity && ","
+                                            } ${rowData.CompanyState} ${
+                                              rowData.CompanyZip
+                                            }`}
+                                          </CustomText>
+                                        </View>
+                                      </View>
+                                    </View>,
                                   ]}
                                 />
 
@@ -5320,8 +5492,14 @@ export default function VendorContacts() {
                                               styles["btn"],
                                               {
                                                 fontSize: 10,
-                                                minWidth: 36,
-                                                maxWidth: 36,
+                                                minWidth:
+                                                  Platform.OS === "web"
+                                                    ? 36
+                                                    : 25,
+                                                maxWidth:
+                                                  Platform.OS === "web"
+                                                    ? 36
+                                                    : 25,
                                               },
                                             ]}
                                           >
@@ -5357,17 +5535,30 @@ export default function VendorContacts() {
                                 key={"cell4"}
                                 width={70}
                                 data={[
-                                  
+
                                 ]}
                               /> */}
                               </>
                             ) : (
                               <>
-                                <View style={{ width: "100%" }}>
+                                <View
+                                  style={{
+                                    width:
+                                      Platform.OS === "web" ? "100%" : "98%",
+                                  }}
+                                >
                                   <View
                                     style={[
                                       styles["card-body"],
                                       { padding: 0 },
+                                      Platform.select({
+                                        android: {
+                                          width: "49%",
+                                        },
+                                        ios: {
+                                          width: "49%",
+                                        },
+                                      }),
                                     ]}
                                   >
                                     <View style={styles["card-input"]}>
@@ -5423,7 +5614,7 @@ export default function VendorContacts() {
                                   <View
                                     style={[
                                       styles["card-input"],
-                                      { width: "100%", paddingTop: 20 },
+                                      { paddingTop: 20 },
                                     ]}
                                   >
                                     <InputField
@@ -5444,92 +5635,90 @@ export default function VendorContacts() {
                                       }}
                                     />
                                   </View>
-                                  <View
+                                  {/* <View
                                     style={{
                                       padding: 0,
-
                                       flexDirection: "row",
                                     }}
                                   >
                                     <View
                                       style={[
                                         styles["card-input"],
-                                        { width: "85%", paddingTop: 5 },
+                                        { paddingTop: 5 },
+                                      ]}
+                                    > */}
+                                  <View
+                                    style={{
+                                      padding: 0,
+                                      paddingTop: 5,
+                                      flexDirection: "row",
+                                    }}
+                                  >
+                                    <View
+                                      style={[
+                                        styles["card-input"],
+                                        { width: "35%", marginRight: 10 },
                                       ]}
                                     >
-                                      <View
-                                        style={{
-                                          padding: 0,
-                                          // paddingTop: 5,
-                                          paddingBottom: 5,
-                                          flexDirection: "row",
+                                      <InputField
+                                        //autoFocus
+                                        type="default"
+                                        label="Cell Phone"
+                                        value={
+                                          sellerTabelProps["ModifiedJson"][
+                                            index
+                                          ].Phone
+                                        }
+                                        placeholder="Cell Phone"
+                                        onChangeText={(Text) => {
+                                          handleGridChange(
+                                            index,
+                                            "Phone",
+                                            Text
+                                          );
                                         }}
-                                      >
-                                        <View
-                                          style={[
-                                            styles["card-input"],
-                                            { width: "35%", marginRight: 10 },
-                                          ]}
-                                        >
-                                          <InputField
-                                            //autoFocus
-                                            type="default"
-                                            label="Cell Phone"
-                                            value={
-                                              sellerTabelProps["ModifiedJson"][
-                                                index
-                                              ].Phone
-                                            }
-                                            placeholder="Cell Phone"
-                                            onChangeText={(Text) => {
-                                              handleGridChange(
-                                                index,
-                                                "Phone",
-                                                Text
-                                              );
-                                            }}
-                                            onBlur={(e) => {
-                                              let number = FormatPhoneLogin(
-                                                sellerTabelProps[
-                                                  "ModifiedJson"
-                                                ][index].Phone
-                                              );
-                                              handleGridChange(
-                                                index,
-                                                "Phone",
-                                                number
-                                              );
-                                            }}
-                                          />
-                                        </View>
-                                        <View
-                                          style={[
-                                            styles["card-input"],
-                                            { width: "62%" },
-                                          ]}
-                                        >
-                                          <InputField
-                                            //autoFocus
-                                            type="default"
-                                            value={
-                                              sellerTabelProps["ModifiedJson"][
-                                                index
-                                              ].AgentEmail
-                                            }
-                                            label="Email"
-                                            placeholder="Email"
-                                            onChangeText={(Text) => {
-                                              handleGridChange(
-                                                index,
-                                                "AgentEmail",
-                                                Text
-                                              );
-                                            }}
-                                          />
-                                        </View>
-                                      </View>
+                                        onBlur={(e) => {
+                                          let number = FormatPhoneLogin(
+                                            sellerTabelProps["ModifiedJson"][
+                                              index
+                                            ].Phone
+                                          );
+                                          handleGridChange(
+                                            index,
+                                            "Phone",
+                                            number
+                                          );
+                                        }}
+                                      />
                                     </View>
                                     <View
+                                      style={[
+                                        styles["card-input"],
+                                        { width: "62%" },
+                                      ]}
+                                    >
+                                      <InputField
+                                        //autoFocus
+                                        type="default"
+                                        value={
+                                          sellerTabelProps["ModifiedJson"][
+                                            index
+                                          ].AgentEmail
+                                        }
+                                        label="Email"
+                                        placeholder="Email"
+                                        onChangeText={(Text) => {
+                                          handleGridChange(
+                                            index,
+                                            "AgentEmail",
+                                            Text
+                                          );
+                                        }}
+                                      />
+                                    </View>
+                                  </View>
+                                  {/* </View> */}
+                                  {/* <View
                                       style={[
                                         styles["card-input"],
                                         {
@@ -5567,8 +5756,14 @@ export default function VendorContacts() {
                                                 styles["btn"],
                                                 {
                                                   fontSize: 10,
-                                                  minWidth: 45,
-                                                  maxWidth: 45,
+                                                  minWidth:
+                                                    Platform.OS === "web"
+                                                      ? 36
+                                                      : 28,
+                                                  maxWidth:
+                                                    Platform.OS === "web"
+                                                      ? 36
+                                                      : 28,
                                                 },
                                               ]}
                                             >
@@ -5600,8 +5795,14 @@ export default function VendorContacts() {
                                                 styles["btn"],
                                                 {
                                                   fontSize: 10,
-                                                  minWidth: 45,
-                                                  maxWidth: 45,
+                                                  minWidth:
+                                                    Platform.OS === "web"
+                                                      ? 36
+                                                      : 28,
+                                                  maxWidth:
+                                                    Platform.OS === "web"
+                                                      ? 36
+                                                      : 28,
                                                 },
                                               ]}
                                             >
@@ -5610,8 +5811,250 @@ export default function VendorContacts() {
                                           </TouchableOpacity>
                                         </View>
                                       )}
+                                    </View> */}
+                                  {/* </View> */}
+                                  <View
+                                    style={[
+                                      styles["card-input"],
+                                      { paddingTop: 20 },
+                                    ]}
+                                  >
+                                    <InputField
+                                      //autoFocus
+                                      type="default"
+                                      label="Seller Street Address"
+                                      value={
+                                        sellerTabelProps["ModifiedJson"][index]
+                                          .CompanyStreetAddr
+                                      }
+                                      placeholder="Seller Street Address"
+                                      onChangeText={(Text) => {
+                                        handleGridChange(
+                                          index,
+                                          "CompanyStreetAddr",
+                                          Text
+                                        );
+                                      }}
+                                    />
+                                  </View>
+                                  <View
+                                    style={{
+                                      padding: 0,
+                                      flexDirection: "row",
+                                      paddingTop: 5,
+                                      paddingBottom: 5,
+                                    }}
+                                  >
+                                    {/* <View
+                                      style={[
+                                        styles["card-input"],
+                                        { paddingTop: 5 },
+                                      ]}
+                                    > */}
+                                    <View
+                                      style={[
+                                        styles["card-body"],
+                                        { padding: 0 },
+                                        Platform.select({
+                                          android: {
+                                            width: "27%",
+                                          },
+                                          ios: {
+                                            width: "27%",
+                                          },
+                                          web: {
+                                            gridTemplateColumns:
+                                              "repeat(3,1fr)",
+                                            width: "85%",
+                                          },
+                                        }),
+                                      ]}
+                                    >
+                                      <View style={styles["card-input"]}>
+                                        <InputField
+                                          //autoFocus
+                                          type="default"
+                                          value={
+                                            sellerTabelProps["ModifiedJson"][
+                                              index
+                                            ].CompanyZip
+                                          }
+                                          label="Zip Code"
+                                          placeholder="Zip Code"
+                                          // style={[
+                                          //   styles["grid-input"],
+                                          //   { outline: "none" },
+                                          // ]}
+                                          onChangeText={(Text) => {
+                                            handleGridChange(
+                                              index,
+                                              "CompanyZip",
+                                              Text
+                                            );
+                                          }}
+                                          onBlur={(e) => {
+                                            fnAutoPopulateStateCity(
+                                              sellerTabelProps["ModifiedJson"][
+                                                index
+                                              ].CompanyZip,
+                                              index,
+                                              "Seller"
+                                            );
+                                          }}
+                                        />
+                                      </View>
+                                      <View style={styles["card-input"]}>
+                                        <InputField
+                                          //autoFocus
+                                          type="default"
+                                          label="City"
+                                          value={
+                                            sellerTabelProps["ModifiedJson"][
+                                              index
+                                            ].CompanyCity
+                                          }
+                                          placeholder="City"
+                                          // style={[
+                                          //   styles["grid-input"],
+                                          //   { outline: "none", display: "block" },
+                                          // ]}
+                                          onChangeText={(Text) => {
+                                            handleGridChange(
+                                              index,
+                                              "CompanyCity",
+                                              Text
+                                            );
+                                          }}
+                                        />
+                                      </View>
+                                      <View style={styles["card-input"]}>
+                                        <InputField
+                                          //autoFocus
+                                          type="default"
+                                          label="State"
+                                          value={
+                                            sellerTabelProps["ModifiedJson"][
+                                              index
+                                            ].CompanyState
+                                          }
+                                          placeholder="State"
+                                          // style={[
+                                          //   styles["grid-input"],
+                                          //   { outline: "none", display: "block" },
+                                          // ]}
+                                          onChangeText={(Text) => {
+                                            handleGridChange(
+                                              index,
+                                              "CompanyState",
+                                              Text
+                                            );
+                                          }}
+                                        />
+                                      </View>
+                                    </View>
+                                    <View
+                                      style={[
+                                        styles["card-input"],
+
+                                        Platform.select({
+                                          ios: {
+                                            width: "20%",
+                                            //  justifyContent: "end",
+                                          },
+                                          web: {
+                                            width: "19%",
+                                            justifyContent: "center",
+                                          },
+                                        }),
+                                      ]}
+                                    >
+                                      {sellerTabelProps["EditRow"][index] ===
+                                        true && (
+                                        <>
+                                          <TouchableOpacity
+                                            style={[
+                                              [styles.buttonContainer],
+                                              {
+                                                alignSelf: "center",
+                                                padding: 5,
+                                              },
+                                            ]}
+                                            onPress={(e) => {
+                                              setSellerTabelProps({
+                                                ...sellerTabelProps,
+                                                EditRow: {
+                                                  ...sellerTabelProps[
+                                                    "EditRow"
+                                                  ],
+                                                  [index]: false,
+                                                },
+                                              });
+                                              handleVendorSave(index, "Seller");
+                                            }}
+                                          >
+                                            <CustomText
+                                              style={[
+                                                styles["btn"],
+                                                {
+                                                  fontSize: 10,
+                                                  minWidth:
+                                                    Platform.OS === "web"
+                                                      ? 36
+                                                      : 28,
+                                                  maxWidth:
+                                                    Platform.OS === "web"
+                                                      ? 36
+                                                      : 28,
+                                                },
+                                              ]}
+                                            >
+                                              {"Save"}
+                                            </CustomText>
+                                          </TouchableOpacity>
+                                          <TouchableOpacity
+                                            style={[
+                                              [styles.buttonContainer],
+                                              {
+                                                alignSelf: "center",
+                                                padding: 5,
+                                              },
+                                            ]}
+                                            onPress={(e) => {
+                                              setSellerTabelProps({
+                                                ...sellerTabelProps,
+                                                EditRow: {
+                                                  ...sellerTabelProps[
+                                                    "EditRow"
+                                                  ],
+                                                  [index]: false,
+                                                },
+                                              });
+                                            }}
+                                          >
+                                            <CustomText
+                                              style={[
+                                                styles["btn"],
+                                                {
+                                                  fontSize: 10,
+                                                  minWidth:
+                                                    Platform.OS === "web"
+                                                      ? 36
+                                                      : 28,
+                                                  maxWidth:
+                                                    Platform.OS === "web"
+                                                      ? 36
+                                                      : 28,
+                                                },
+                                              ]}
+                                            >
+                                              {"Cancel"}
+                                            </CustomText>
+                                          </TouchableOpacity>
+                                        </>
+                                      )}
                                     </View>
                                   </View>
+                                  {/* </View> */}
                                 </View>
                               </>
                             )}
@@ -6491,7 +6934,7 @@ export default function VendorContacts() {
                                   {/* {row.Phone !== "" && ( */}
                                   <View style={styles["card-item"]}>
                                     {/* <CustomText
-                                      
+
                                       >
                                         {row.Phone}
                                       </CustomText> */}
@@ -6512,7 +6955,7 @@ export default function VendorContacts() {
                                   {/* )} */}
                                   <View style={styles["card-item"]}>
                                     {/* <CustomText
-                                    
+
                                     >
                                       {row.AgentEmail}
                                     </CustomText> */}
@@ -6685,6 +7128,10 @@ export default function VendorContacts() {
                                 padding: 0,
                                 flexDirection: "row",
                               },
+                              ios: {
+                                padding: 0,
+                                flexDirection: "row",
+                              },
                             })}
                           >
                             <View
@@ -6694,6 +7141,7 @@ export default function VendorContacts() {
                                 Platform.select({
                                   web: { width: "31%" },
                                   android: { flexBasis: 120 },
+                                  ios: { flexBasis: 120 },
                                 }),
                               ]}
                             >
@@ -6734,6 +7182,7 @@ export default function VendorContacts() {
                                 Platform.select({
                                   web: { width: "68%", marginLeft: 9 },
                                   android: { flexBasis: width + 45 },
+                                  ios: { flexBasis: width + 45 },
                                 }),
                               ]}
                             >
@@ -6864,7 +7313,8 @@ export default function VendorContacts() {
                                 onBlur={(e) => {
                                   fnAutoPopulateStateCity(
                                     cardInfo[index]["CompanyZip"],
-                                    index
+                                    index,
+                                    "Vendor"
                                   );
                                 }}
                               />
@@ -7140,21 +7590,53 @@ export default function VendorContacts() {
       </View>
     );
   };
+
+  const RenderContent = () => {
+    return (
+      <ScrollView scrollEnabled={true} showsVerticalScrollIndicator={false}>
+        <View>
+          {queryString["Page"] === "HazardInsurance" ? (
+            <>{HazardInsurance()}</>
+          ) : (
+            <>{Vendors()}</>
+          )}
+        </View>
+      </ScrollView>
+    );
+  };
   /////////////////////////////// Component declaration ends here /////////////////////////
 
   return (
-    <ScrollView scrollEnabled={true} showsVerticalScrollIndicator={false}>
-    <View>
-      {queryString["Page"] === "HazardInsurance" ? (
-        <>{HazardInsurance()}</>
-      ) : (
+    <>
+      {Platform.OS === "ios" ? (
         <>
-        {Vendors()}
+          <KeyboardAwareScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+              scrollEnabled={true}
+              showsVerticalScrollIndicator={false}
+            >
+              <View>
+                {queryString["Page"] === "HazardInsurance" ? (
+                  <>{HazardInsurance()}</>
+                ) : (
+                  <>{Vendors()}</>
+                )}
+              </View>
+            </ScrollView>
+          </KeyboardAwareScrollView>
         </>
+      ) : (
+        <ScrollView scrollEnabled={true} showsVerticalScrollIndicator={false}>
+          <View>
+            {queryString["Page"] === "HazardInsurance" ? (
+              <>{HazardInsurance()}</>
+            ) : (
+              <>{Vendors()}</>
+            )}
+          </View>
+        </ScrollView>
       )}
-
-    </View>
-    </ScrollView>
+    </>
   );
 }
 
@@ -7180,6 +7662,7 @@ const styles = StyleSheet.create({
       padding: 0,
       margin: 10,
       marginLeft: 0,
+      marginRight: 0,
       borderColor: "#5e9cd3",
       borderWidth: 1,
       zIndex: -1,
@@ -7199,7 +7682,12 @@ const styles = StyleSheet.create({
     paddingLeft: 10,
     backgroundColor: "#5e9cd3",
     flexDirection: "row",
+    alignItems: "center",
+    // ...Platform.select({
+    //   web:{
     justifyContent: "space-between",
+    //   },
+    // }),
     minHeight: 37,
   },
   "card-footer": {
@@ -7213,11 +7701,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     minHeight: 37,
+    maxWidth: 450,
+    ...Platform.select({
+      ios: {
+        flexShrink: 1,
+      },
+      android: {
+        //Need to check
+        flexShrink: 1,
+      },
+    }),
   },
   "card-Title": {
     fontSize: Platform.OS === "web" ? 18 : 17,
     color: "#fff",
     alignSelf: "center",
+    ...Platform.select({
+      ios: {
+        width: "40%",
+        //flexShrink:1
+        flex: 1,
+      },
+      android: {
+        width: "40%",
+      },
+    }),
   },
   btn: {
     color: "#fff",
@@ -7305,6 +7813,10 @@ const styles = StyleSheet.create({
         height: 15,
         width: 15,
       },
+      ios: {
+        height: 15,
+        width: 15,
+      },
     }),
   },
   "table-container": {
@@ -7313,9 +7825,17 @@ const styles = StyleSheet.create({
     margin: 10,
     marginLeft: 0,
     backgroundColor: "#fff",
-    width: Platform.OS === "web" ? "450px" : null,
+    //width: Platform.OS === "web" ? "450px" : 500,
+    width: 450,
     borderColor: "#9bc2e6",
     borderWidth: 1,
+    // overflow:'scroll',
+    //     ...Platform.select({
+    //       android:{
+    //         maxWidth:450,
+    // overflow:'scroll'
+    //       }
+    //     })
   },
   "table-head": {
     //height: Platform.OS === "web" ? 40 : 50,
@@ -7332,6 +7852,14 @@ const styles = StyleSheet.create({
     padding: 4, //10,
     paddingBottom: 0,
     paddingTop: 0,
+    ...Platform.select({
+      android: {
+        overflow: "scroll",
+      },
+      ios: {
+        overflow: "scroll",
+      },
+    }),
   },
   "table-text": {
     textAlign: "left",
@@ -7339,42 +7867,56 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   "modal-container": {
-    flex: Platform.OS === "web" ? 1 : 0,
     justifyContent: "center",
-    flexDirection: Platform.OS === "web" ? "row" : "row", // null
     // alignItems: Platform.OS === "web" ? "center" : null,
     marginTop: 10,
-    margin: 15,
-    maxWidth: 440,
     overflowY: "auto",
     overflowX: "hidden",
     ...Platform.select({
-      web:{
+      web: {
         maxHeight: "61vh",
-        display: "block"
-
-      }
-    })
+        display: "block",
+        flexDirection: "row", // null
+        maxWidth: 440,
+        flex: 1,
+        margin: 15,
+      },
+      android: {
+        maxWidth: null,
+        margin: 5,
+      },
+      ios: {
+        maxWidth: null,
+        margin: 5,
+      },
+    }),
   },
   "modal-header": {
     backgroundColor: "#428bca",
     padding: 10,
     ...Platform.select({
-      web:{
-        display: 'block',
+      web: {
+        display: "block",
       },
-      android:{
-        flexDirection:'row'
-      }
-    
-    })
+      android: {
+        flexDirection: "row",
+      },
+      ios: {
+        flexDirection: "row",
+      },
+    }),
   },
   "modal-footer": {
     backgroundColor: "#e4e9ee",
     padding: 14,
     flexDirection: "row-reverse",
     alignSelf: "flex-end",
-    width: Platform.OS === "web" ? "100%" : null,
+    width: "100%",
+    // ...Platform.select({
+    //   web:{
+    //     width:''
+    //   }
+    // })
   },
 
   "modal-header-title": {
@@ -7382,11 +7924,16 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 18,
     ...Platform.select({
-      web:{
-        width:null
-
-      }
-    })
+      web: {
+        width: null,
+      },
+      android: {
+        width: "89%",
+      },
+      ios: {
+        width: "89%",
+      },
+    }),
   },
   "modal-close": {
     color: "#ffffff",
@@ -7398,6 +7945,9 @@ const styles = StyleSheet.create({
         right: 0,
       },
       android: {
+        marginLeft: 15,
+      },
+      ios: {
         marginLeft: 15,
       },
     }),
@@ -7442,6 +7992,16 @@ const styles = StyleSheet.create({
   "remove-card-header": {
     flexDirection: "row",
     alignItems: "center",
+    ...Platform.select({
+      ios: {
+        flexShrink: 1,
+        flexDirection: "column",
+      },
+      android: {
+        flexShrink: 1,
+        flexDirection: "column",
+      },
+    }),
   },
   "card-disable": {
     backgroundColor: "#dad2d2",
@@ -7457,6 +8017,9 @@ const styles = StyleSheet.create({
     marginTop: 5,
     ...Platform.select({
       android: {
+        alignSelf: "flex-start",
+      },
+      ios: {
         alignSelf: "flex-start",
       },
     }),
@@ -7496,5 +8059,28 @@ const styles = StyleSheet.create({
         borderStyle: "dotted",
       },
     }),
+  },
+  "table-scroll": {
+    ...Platform.select({
+      android: {
+        maxWidth: 450,
+        overflow: "scroll",
+      },
+      ios: {
+        maxWidth: 450,
+        overflow: "scroll",
+      },
+    }),
+  },
+  "card-header-btn": {
+    // flexDirection:'row',
+    // ...Platform.select({
+    //   ios:{
+    //     maxWidth:'50%'
+    //   },
+    //   android:{
+    //     alignItems:'flex-end'
+    //   }
+    // })
   },
 });
