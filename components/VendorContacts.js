@@ -93,6 +93,7 @@ export default function VendorContacts() {
   const [saveValidation, setSaveValidation] = useState({});
   const [warehouse, setWareHouseList] = useState();
   const [cardValidation, setCardValidation] = useState();
+  const [IsQoute, setIsQuote] = useState(false);
 
   //useRef
   const btnAddNewRef = useRef([]); //modified from singular to array
@@ -416,6 +417,7 @@ export default function VendorContacts() {
     // setCardInfo(rows); // Testing purpose
   };
   const GetHarardInsuranceload = () => {
+    handleQuoteLabel();
     let qString = "",
       sParams = "";
     if (Platform.OS === "web") {
@@ -439,36 +441,14 @@ export default function VendorContacts() {
       method: "POST",
     })
       .then((response) => {
-        let Data = JSON.parse(response);
-        // //let Data = Rows;
-        // let sellerData = Data.filter((e) => e.ContactType === 0);
-        // if (sellerData.length == 1 && sellerData[0].AgentID == 0)
-        //   sellerData = [];
-        // setSellerInfo({ ...sellerInfo, RowData: sellerData });
-        // setSellerTabelProps({
-        //   ...sellerTabelProps,
-        //   ["ModifiedJson"]: sellerData,
-        // });
+        
 
+        let Data = JSON.parse(response);
         const CardResult = Data.filter((e) => e.isCard === 1);
         //const GridData = Data.filter((e) => e.isCard !== 1);
 
         if (CardResult.length) {
           let CardData = CardResult;
-
-          // const hasSeller = CardData.filter((e) => e.ContactType == 0);
-          // if (Object.keys(hasSeller).length === 0)
-          //   CardData.splice(1, 0, { ContactType: 0, IsEmpty: true, isCard: 1 });
-
-          // const hasSellerEscrow = CardData.filter((e) => e.ContactType == 49);
-          // if (Object.keys(hasSellerEscrow).length === 0)
-          //   CardData.splice(5, 0, {
-          //     ContactType: 49,
-          //     IsEmpty: true,
-          //     isCard: 1,
-          //   });
-          // let hazardInsurance = GridData.filter((e) => e.ContactType === 17);
-          // CardData.push(hazardInsurance[0]);
 
           let uniqueRows = getUniqueObjectsByKey(CardData, "ContactTypename");
           console.log("Card info", uniqueRows);
@@ -478,25 +458,7 @@ export default function VendorContacts() {
           setCardInfo(uniqueRows);
           setResult(uniqueRows);
           setEditCard({});
-          // setCopyAgent({
-          //   2: uniqueRows[2].isEscrowSame == 0 ? false : true, // Title for borrower
-          //   48: uniqueRows[4].isEscrowSame == 0 ? false : true, // Title for seller
-          //   50:
-          //     uniqueRows[6].iNoRealtorReprestation == 1 &&
-          //     uniqueRows[6].AgentID == 0
-          //       ? true
-          //       : false, // Realtor for borrower
-          //   51:
-          //     uniqueRows[7].iNoRealtorReprestation == 1 &&
-          //     uniqueRows[7].AgentID == 0
-          //       ? true
-          //       : false, // Realtor for seller
-          //   43:
-          //     uniqueRows[uniqueRows.length - 1].iNoRealtorReprestation == 1 &&
-          //     uniqueRows[uniqueRows.length - 1].AgentID == 0
-          //       ? true
-          //       : false, // Realtor for seller
-          // });
+
           const EmptyVendors = CardData.filter(
             (e) => e.AgentID === 0 && e.VendorId === 0
           );
@@ -515,51 +477,7 @@ export default function VendorContacts() {
           let fieldValidation = handleFieldValidation(uniqueRows);
 
           setSaveValidation(fieldValidation); // To have the field level validation
-
-          // setSaveValidation({
-          //   ...saveValidation,
-          //   [ContactType]: {
-          //     ...saveValidation[ContactType],
-          //     [name]: true,
-          //   },
-          // });
         }
-        //Grid data binding
-        // if (GridData.length) {
-        //   const NotaryRow = GridData.filter((e) => e["ContactType"] === 52);
-        //   const CondoPUDRow = GridData.filter((e) => e["ContactType"] === 56);
-        //   console.log("Full grid row === >", GridData);
-        //   const AppraiserRows = GridData.filter((e) => e["ContactType"] === 3);
-        //   const NonBorroweRows = GridData.filter(
-        //     (e) => e["ContactType"] === 999
-        //   );
-        //   const OrderedObject = fnChangeArrOfObjectOrder(GridData);
-
-        //   setTableProps({
-        //     ...tabelProps,
-        //     tableData: OrderedObject,
-        //     ModifiedJson: OrderedObject,
-        //     AppraiserRows: AppraiserRows,
-        //     NonBorroweRows: NonBorroweRows,
-        //     // IsShowAppraiserSearch: AppraiserRows[0]
-        //     //   ? AppraiserRows[0].AgentID == 0
-        //     //     ? true
-        //     //     : false
-        //     //   : true,
-        //     // IsShowNotarySearch: NotaryRow[0]
-        //     //   ? NotaryRow[0].AgentID == 0
-        //     //     ? true
-        //     //     : false
-        //     //   : true,
-        //     // IsShowCondoPUDSearch: CondoPUDRow[0]
-        //     //   ? CondoPUDRow[0].AgentID == 0
-        //     //     ? true
-        //     //     : false
-        //     //   : true,
-        //   });
-        //   console.log("Grid info", OrderedObject);
-        //   //setGridResult(GridData);
-        // }
       })
       .catch((e) => console.log("Get API => ", e));
     // setCardInfo(rows); // Testing purpose
@@ -576,6 +494,26 @@ export default function VendorContacts() {
         setWareHouseList(Data);
       })
       .catch((e) => console.log("GetWarehouseBankList API => ", e));
+  };
+  //To change the Quote button label
+  const handleQuoteLabel = () => {
+    handleAPI({
+      name: "GetMaticData",
+      params: {
+        LoanId:
+          Platform.OS === "web"
+            ? handleParamFromURL(document.location.href, "LoanId")
+            : queryString["LoanId"],
+      },
+      method: "POST",
+    })
+      .then((response) => {
+        let Data = JSON.parse(response);
+        let IsQuoteAvailable = Data['Table'].some(e => e.isQuoteavail == 1)
+        setIsQuote(IsQuoteAvailable)
+        console.log("GetMaticData ==>", Data);
+      })
+      .catch((e) => console.log("GetMaticData API => ", e));
   };
   // To focus the input when scroll up/down
   const fnFocusInput = (e) => {
@@ -863,7 +801,9 @@ export default function VendorContacts() {
     }
     console.log("------------------------------------");
     console.log("Individual save initiated");
-    let JsonData = JSON.stringify(finalJson).replaceAll("#", "|H|").replaceAll("&", "|A|");
+    let JsonData = JSON.stringify(finalJson)
+      .replaceAll("#", "|H|")
+      .replaceAll("&", "|A|");
     handleAPI({
       name: "Save_VendorLoanInfo_API", //"Save_VendorLoanInfo",
       params: {
@@ -1939,7 +1879,9 @@ export default function VendorContacts() {
     isBlockSave = finalJson.filter((obj) =>
       mandatoryFields.some((key) => !obj[key])
     );
-    let JsonData = JSON.stringify(finalJson).replaceAll("#", "|H|").replaceAll("&", "|A|");
+    let JsonData = JSON.stringify(finalJson)
+      .replaceAll("#", "|H|")
+      .replaceAll("&", "|A|");
     if (isBlockSave.length > 0 && ModifiedGrid.length == 0) return;
     const parentElLoader = window.parent.document.getElementById("divLoader");
     parentElLoader.style.display = "block";
@@ -6268,7 +6210,7 @@ export default function VendorContacts() {
                   }}
                   style={[styles.buttonContainer]}
                 >
-                  <CustomText style={[styles["btn"]]}>{"Get Quote"}</CustomText>
+                  <CustomText style={[styles["btn"]]}>{`${IsQoute ? `View`:`Get`} Quote`}</CustomText>
                 </TouchableOpacity>
               </View>
               <View style={{ gap: 5 }}>
