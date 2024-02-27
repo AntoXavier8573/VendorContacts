@@ -4088,7 +4088,13 @@ export default function VendorContacts() {
                                       {row.AgentEmail}
                                     </CustomText> */}
                                       {row.AgentEmail ? (
-                                        <CustomText>
+                                        <CustomText style={ styles["card-text-underline"]} onPress={() => {
+                                          let subject = "",
+                                            body = "";
+                                          const emailUrl = `mailto:${row.AgentEmail}`;
+                                        //  Linking.openURL(emailUrl);
+                                          window.open(emailUrl,'_self')
+                                        }}>
                                           {row.AgentEmail}
                                         </CustomText>
                                       ) : (
@@ -6206,7 +6212,7 @@ export default function VendorContacts() {
               >
                 <TouchableOpacity
                   onPress={(e) => {
-                    parent.fnGetquote();
+                    parent.fnGetquote(IsQoute);
                   }}
                   style={[styles.buttonContainer]}
                 >
