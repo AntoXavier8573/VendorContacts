@@ -52,6 +52,12 @@ export default function VendorContacts() {
     Seller: false,
     Confirmation: false,
   });
+  const [isModalSecHazardVisible, setModalSecHazardVisible] = useState({
+    SecondaryHazard: false,
+    Confirm: false,
+  }); // State contains modal of the secondary hazard insurance
+  const [secondaryhazardInfo, setsecondaryhazardInfo] = useState({}); //State contains secondary hazard insurance info
+  const [VendorServiceRights, setVendorServiceRights] = useState(0);
   const [queryString, setQueryString] = useState({
     LoanId: "456760",
     SessionId: "{B43745A9-EE0C-4E02-A517-3B04E5F6029B}",
@@ -88,12 +94,27 @@ export default function VendorContacts() {
     EditRow: [],
     ModifiedJson: [],
   });
+  const [secondaryHazardTabelProps, setSecondaryHazardTabelProps] = useState({
+    tableHead: [
+      "First Name",
+      "Last Name",
+      "Entity Name",
+      "Cell Phone",
+      "Email",
+      "",
+    ],
+    tableData: [],
+    EditRow: [],
+    ModifiedJson: [],
+  });
+
   const [selectedItemIndex, setSelectedItemIndex] = useState(-1);
   const [validation, setValidation] = useState({});
   const [saveValidation, setSaveValidation] = useState({});
   const [warehouse, setWareHouseList] = useState();
   const [cardValidation, setCardValidation] = useState();
   const [IsQoute, setIsQuote] = useState(false);
+  const [IsSecondayHazard, setIsSecondaryHazard] = useState(true);
 
   //useRef
   const btnAddNewRef = useRef([]); //modified from singular to array
@@ -162,6 +183,11 @@ export default function VendorContacts() {
           } else {
             if (Object.keys(AutoCompdata)[0] == 0) {
               handleSellerSelection(AutoCompdata["0"][selectedItemIndex]); // Seller selection
+            }
+            if (Object.keys(AutoCompdata)[0] == 57) {
+              handleSecondaryHazardSelection(
+                AutoCompdata[Object.keys(AutoCompdata)[0]][selectedItemIndex]
+              ); // Secondary hazard selection
             } else {
               handleCompanySelection(
                 AutoCompdata[Object.keys(AutoCompdata)[0]][selectedItemIndex],
@@ -242,6 +268,7 @@ export default function VendorContacts() {
 
             return;
           } else {
+            GetVendorServiceRights(UserId);
             handlePageLoad();
             GetWareHouseList();
           }
@@ -294,17 +321,41 @@ export default function VendorContacts() {
 
         let Data = JSON.parse(response);
         //let Data = Rows;
+        console.log("Whole Info ==>", Data);
+        let UWStatus = ''
         let sellerData = Data.filter((e) => e.ContactType === 0);
         if (sellerData.length == 1 && sellerData[0].AgentID == 0)
+        {
+          UWStatus = sellerData[0]['UWStatus']
           sellerData = [];
+        }
         setSellerInfo({ ...sellerInfo, RowData: sellerData });
         setSellerTabelProps({
           ...sellerTabelProps,
           ["ModifiedJson"]: sellerData,
         });
-        //console.log("Seller Info ==>", sellerData);
+        console.log("Seller Info ==>", sellerData);
         const CardResult = Data.filter((e) => e.isCard === 1);
         const GridData = Data.filter((e) => e.isCard !== 1);
+
+        //Filter the Secondary hazard insurance by contact type 57
+        let secondaryhazardData = Data.filter(
+          (e) => e.ContactType === 57 && e.AgentID != "" && e.AgentID != 0
+        );
+        // if (secondaryhazardData.length == 1 )
+        // secondaryhazardData = [];
+        // if(secondaryhazardData==''){
+        //   secondaryhazardData.push({FirstName:"No Secondary Hazard Insurance Selected"})
+        // }
+
+        setsecondaryhazardInfo({
+          ...secondaryhazardInfo,
+          RowData: secondaryhazardData,
+        });
+        setSecondaryHazardTabelProps({
+          ...secondaryHazardTabelProps,
+          ["ModifiedJson"]: secondaryhazardData,
+        });
 
         if (CardResult.length) {
           let CardData = CardResult;
@@ -325,7 +376,8 @@ export default function VendorContacts() {
           let uniqueRows = getUniqueObjectsByKey(CardData, "ContactTypename");
           console.log("Card info ==>", uniqueRows);
           let cardHighlight = handleCardValidation(uniqueRows);
-          if (sellerData.length == 0) cardHighlight["0"] = true;
+          if (sellerData.length == 0 && UWStatus != 'New File') cardHighlight["0"] = true;
+          if (secondaryhazardData.length == 0) cardHighlight["57"] = true;
           setCardValidation({ ...cardValidation, ...cardHighlight }); // to show the red border in the card
           setCopyAgent({
             2: uniqueRows[2].isEscrowSame == 0 ? false : true, // Title for borrower
@@ -366,6 +418,7 @@ export default function VendorContacts() {
           let fieldValidation = handleFieldValidation(uniqueRows);
 
           setSaveValidation(fieldValidation); // To have the field level validation
+
           setCardInfo(uniqueRows);
           setResult(uniqueRows);
           // setSaveValidation({
@@ -441,8 +494,6 @@ export default function VendorContacts() {
       method: "POST",
     })
       .then((response) => {
-        
-
         let Data = JSON.parse(response);
         const CardResult = Data.filter((e) => e.isCard === 1);
         //const GridData = Data.filter((e) => e.isCard !== 1);
@@ -509,8 +560,8 @@ export default function VendorContacts() {
     })
       .then((response) => {
         let Data = JSON.parse(response);
-        let IsQuoteAvailable = Data['Table'].some(e => e.isQuoteavail == 1)
-        setIsQuote(IsQuoteAvailable)
+        let IsQuoteAvailable = Data["Table"].some((e) => e.isQuoteavail == 1);
+        setIsQuote(IsQuoteAvailable);
         console.log("GetMaticData ==>", Data);
       })
       .catch((e) => console.log("GetMaticData API => ", e));
@@ -610,6 +661,20 @@ export default function VendorContacts() {
               ModifiedJson: modifiedJson,
             };
           });
+        } else if (Type === "SecondaryHazard") {
+          setSecondaryHazardTabelProps((prevState) => {
+            const modifiedJson = [...prevState.ModifiedJson];
+            modifiedJson[index] = {
+              ...modifiedJson[index],
+              ["CompanyCity"]: city,
+              ["CompanyState"]: state,
+              IsModified: 1,
+            };
+            return {
+              ...prevState,
+              ModifiedJson: modifiedJson,
+            };
+          });
         } else {
           setCardInfo((PrevObj) => {
             const updateObj = [...PrevObj];
@@ -634,7 +699,7 @@ export default function VendorContacts() {
     let mandatoryFields = [];
     let finalJson = [];
     let isBlockSave = false;
-    if (TypeName !== "Seller") {
+    if (TypeName !== "Seller" && TypeName !== "SecondaryHazard") {
       mandatoryFields = [
         "Companyname",
         "FirstName",
@@ -662,13 +727,35 @@ export default function VendorContacts() {
       setSaveValidation({ ...saveValidation, ...fieldValidation });
       let cardHighlight = handleCardValidation(finalJson);
       setCardValidation({ ...cardValidation, ...cardHighlight });
+    } else if (TypeName === "SecondaryHazard") {
+      finalJson = secondaryHazardTabelProps["ModifiedJson"].filter(
+        (e, i) => i == index
+      );
+      mandatoryFields = [
+        "Companyname",
+        "FirstName",
+        "LastName",
+        // "AgentEmail",
+        // "CompanyStreetAddr",
+        // "CompanyZip",
+        // "CompanyCity",
+        // "CompanyState",
+        // "CompPhone",
+        //  "Phone",
+        // "FileNumber",
+      ];
+      mandatoryFields.forEach((key) => {
+        if (secondaryHazardTabelProps["ModifiedJson"][index][key] === "") {
+          isBlockSave = true;
+        }
+      });
     } else {
       finalJson = sellerTabelProps["ModifiedJson"].filter((e, i) => i == index);
     }
     if (isBlockSave) return; // To block when only the company name is empty
     //setOtherProps({ ...otherProps, [`showSavebtn-${index}`]: false });
 
-    if (TypeName !== "Seller") {
+    if (TypeName !== "Seller" && TypeName !== "SecondaryHazard") {
       setEditCard({
         ...editCard,
         [finalJson[0]["ContactType"]]: false,
@@ -784,6 +871,20 @@ export default function VendorContacts() {
           return updateObj;
         });
       }
+    } else if (TypeName === "SecondaryHazard") {
+      let newSecHazardRowData = [];
+      setsecondaryhazardInfo((prevState) => {
+        newSecHazardRowData = [...prevState.RowData];
+        newSecHazardRowData[index] = finalJson[0];
+        newSecHazardRowData[index].AgentID = -1;
+        return { ...prevState, RowData: newSecHazardRowData };
+      });
+      setSecondaryHazardTabelProps((prevState) => {
+        newSecHazardRowData = [...prevState.ModifiedJson];
+        newSecHazardRowData[index] = finalJson[0];
+        newSecHazardRowData[index].AgentID = -1;
+        return { ...prevState, ModifiedJson: newSecHazardRowData };
+      });
     } else {
       let newRowData = [];
       setSellerInfo((prevState) => {
@@ -800,7 +901,7 @@ export default function VendorContacts() {
       });
     }
     console.log("------------------------------------");
-    console.log("Individual save initiated");
+    console.log("Individual save initiated" + finalJson);
     let JsonData = JSON.stringify(finalJson)
       .replaceAll("#", "|H|")
       .replaceAll("&", "|A|");
@@ -825,24 +926,61 @@ export default function VendorContacts() {
           // To handle business validation
           // console.log('SaveStatus ==> ', SaveStatus)
           if (finalJson[0]["IsNew"] === 1) {
-            setResult((PrevObj) => {
-              const updateObj = [...PrevObj];
-              updateObj[index] = {
-                ...PrevObj[index],
-                ["VendorId"]: VendorId,
-                ["AgentID"]: AgentId,
-              };
-              return updateObj;
-            });
-            setCardInfo((PrevObj) => {
-              const updateObj = [...PrevObj];
-              updateObj[index] = {
-                ...PrevObj[index],
-                ["VendorId"]: VendorId,
-                ["AgentID"]: AgentId,
-              };
-              return updateObj;
-            });
+            if (TypeName === "SecondaryHazard") {
+              let newSecHazardRowData = [];
+              setsecondaryhazardInfo((prevState) => {
+                newSecHazardRowData = [...prevState.RowData];
+                newSecHazardRowData[index] = finalJson[0];
+                newSecHazardRowData[index].AgentID = AgentId;
+                newSecHazardRowData[index].VendorId = VendorId;
+                return { ...prevState, RowData: newSecHazardRowData };
+              });
+              setSecondaryHazardTabelProps((prevState) => {
+                newSecHazardRowData = [...prevState.ModifiedJson];
+                newSecHazardRowData[index] = finalJson[0];
+                newSecHazardRowData[index].AgentID = AgentId;
+                newSecHazardRowData[index].VendorId = VendorId;
+                return { ...prevState, ModifiedJson: newSecHazardRowData };
+              });
+              // setsecondaryhazardInfo((PrevObj) => {
+              //   const updateObj = [...PrevObj.RowData];
+              //   updateObj[index] = {
+              //     ...PrevObj.RowData[index],
+              //     ["VendorId"]: VendorId,
+              //     ["AgentID"]: AgentId,
+              //   };
+              //   return updateObj;
+              // });
+              // setSecondaryHazardTabelProps((PrevObj) => {
+              //   const updateObj = [...PrevObj.ModifiedJson];
+              //   updateObj[index] = {
+              //     ...PrevObj.ModifiedJson[index],
+              //     ["VendorId"]: VendorId,
+              //     ["AgentID"]: AgentId,
+              //   };
+              //   return updateObj;
+              // });
+            } else {
+              setResult((PrevObj) => {
+                const updateObj = [...PrevObj];
+                updateObj[index] = {
+                  ...PrevObj[index],
+                  ["VendorId"]: VendorId,
+                  ["AgentID"]: AgentId,
+                };
+                return updateObj;
+              });
+              setCardInfo((PrevObj) => {
+                const updateObj = [...PrevObj];
+                updateObj[index] = {
+                  ...PrevObj[index],
+                  ["VendorId"]: VendorId,
+                  ["AgentID"]: AgentId,
+                };
+                return updateObj;
+              });
+            }
+
             // setTimeout(() => {
             //   handleGetVendorByType(finalJson[0]["ContactType"]);
             // }, 1500);
@@ -860,6 +998,15 @@ export default function VendorContacts() {
   //Modal open/close
   const toggleModal = (Type) => {
     setModalVisible({ isModalVisible, [Type]: !isModalVisible[Type] });
+    setData({});
+    setInput({});
+  };
+  //Modal open/close- Secondary hazard
+  const toggleSecondaryHazardModal = (Type) => {
+    setModalSecHazardVisible({
+      isModalSecHazardVisible,
+      [Type]: !isModalSecHazardVisible[Type],
+    });
     setData({});
     setInput({});
   };
@@ -942,6 +1089,10 @@ export default function VendorContacts() {
       method: "POST",
     })
       .then((response) => {
+        // if(type==57)
+        // {
+
+        // }
         let result = [];
         if (response !== undefined && response != "undefined") {
           try {
@@ -1017,6 +1168,9 @@ export default function VendorContacts() {
     } else {
       if (event.ActualType == 0) {
         handleSellerSelection(event); // Seller selection
+      }
+      if (event.ActualType == 57) {
+        handleSecondaryHazardSelection(event); // Secondary Hazard selection
       } else {
         handleCompanySelection(event, index, 0); // Company selection selection
       }
@@ -1208,12 +1362,69 @@ export default function VendorContacts() {
         setData({});
         setInput({});
         // To handle business validation
+        let fieldValidation = handleFieldValidation(finalJson);
+        console.log("Field validation ===>", fieldValidation);
+        setSaveValidation({ ...saveValidation, ...fieldValidation });
         handleBusinessValidationMessage();
       })
       .catch((e) => {
         // To handle business validation
         handleBusinessValidationMessage();
         console.log("Error in Seller selection method => ", e);
+      });
+  };
+  //Handle Secondary Hazard Selection
+  const handleSecondaryHazardSelection = (event) => {
+    //console.time('handleSellerSelection')
+    handleAPI({
+      name: "AddNewVendorSigner",
+      params: {
+        UserId: event.id,
+        UserType: event.ValType,
+        strSessionId:
+          Platform.OS === "web"
+            ? handleParamFromURL(document.location.href, "SessionId")
+            : queryString["SessionId"],
+        SerCatId: event.ActualType,
+        iLoanId:
+          Platform.OS === "web"
+            ? handleParamFromURL(document.location.href, "LoanId")
+            : queryString["LoanId"],
+        isTitleEscSame: 0, //IsSame,
+      },
+      method: "POST",
+    })
+      .then((response) => {
+        //console.timeEnd('handleSellerSelection')
+        console.log("Secondary Hazard selection API result ==>", response);
+        const Response = JSON.parse(response);
+        setsecondaryhazardInfo({ ...secondaryhazardInfo, RowData: Response });
+        setSecondaryHazardTabelProps({
+          ...secondaryHazardTabelProps,
+          ["ModifiedJson"]: Response,
+          EditRow: {},
+        });
+
+        //   const Response1 = JSON.parse(response);
+        //   let uniqueRows = getUniqueObjectsByKey(Response1, "label");
+        //  const Response=uniqueRows;
+        //   setsecondaryhazardInfo({ ...secondaryhazardInfo, RowData: [...secondaryhazardInfo["RowData"],...Response] });
+        //   setSecondaryHazardTabelProps({
+        //     ...secondaryHazardTabelProps,
+        //     ["ModifiedJson"]: [...secondaryHazardTabelProps["ModifiedJson"],...Response] ,
+        //     EditRow: {},
+        //   });
+
+        setCardValidation({ ...cardValidation, 57: false });
+        setData({});
+        setInput({});
+        // To handle business validation
+        handleBusinessValidationMessage();
+      })
+      .catch((e) => {
+        // To handle business validation
+        handleBusinessValidationMessage();
+        console.log("Error in Secondary Hazard selection method => ", e);
       });
   };
   //Handles the changed values from the grid for seller/grid
@@ -1283,6 +1494,89 @@ export default function VendorContacts() {
           [name]: value,
           IsModified: 1,
           IsNew: 0,
+        };
+        return {
+          ...prevState,
+          ModifiedJson: modifiedJson,
+        };
+      });
+    }
+  };
+
+  //Handles the changed values from the grid for Secondary Hazard/grid
+  const handleSecondaryHazardGridChange = (
+    index,
+    name,
+    value,
+    Category,
+    Type
+  ) => {
+    if (Category === "Grid") {
+      handleParentWindow("Enable"); // To enable the global save
+
+      if (Type == "N") {
+        let NewRow =
+          tabelProps["NonBorroweRows"].length == 1 &&
+          tabelProps["NonBorroweRows"][0].AgentID == -1
+            ? true
+            : false;
+        setSecondaryHazardTabelProps((prevState) => {
+          const modifiedJson = [...prevState.NonBorroweRows];
+          modifiedJson[index] = {
+            ...modifiedJson[index],
+            [name]: value,
+            IsModified: 1,
+            IsNew: modifiedJson[index]["IsNew"] === 1 || NewRow ? 1 : 0,
+          };
+          return {
+            ...prevState,
+            NonBorroweRows: modifiedJson,
+          };
+        });
+      } else {
+        setSecondaryHazardTabelProps((prevState) => {
+          const modifiedJson = [...prevState.tableData];
+          modifiedJson[index] = {
+            ...modifiedJson[index],
+            [name]: value,
+            IsModified: 1,
+            IsNew: 0,
+          };
+          return {
+            ...prevState,
+            tableData: modifiedJson,
+          };
+        });
+
+        const { ContactType } = tabelProps["tableData"][index];
+        // setJsonModified({
+        //   ...jsonModified,
+        //   [ContactType]: {
+        //     ...jsonModified[ContactType],
+        //     [name]: value,
+        //   },
+        // });
+
+        if (name === "FileNumber" && ContactType == 22) {
+          if (value.trim().length === 0) {
+            setSaveValidation({
+              ...saveValidation,
+              [ContactType]: {
+                ...saveValidation[ContactType],
+                [name]: true,
+              },
+            });
+          }
+        }
+      }
+    } else {
+      setSecondaryHazardTabelProps((prevState) => {
+        const modifiedJson = [...prevState.ModifiedJson];
+        modifiedJson[index] = {
+          ...modifiedJson[index],
+          [name]: value,
+          IsModified: 1,
+          IsNew: modifiedJson[index]["IsNew"] === 1 ? 1 : 0,
         };
         return {
           ...prevState,
@@ -1482,6 +1776,35 @@ export default function VendorContacts() {
       setSellerTabelProps({ ...sellerTabelProps, ModifiedJson: Result });
       if (Result.length === 0)
         setCardValidation({ ...cardValidation, ["0"]: true });
+    }
+    if (Data.ContactType === 57) {
+      Data["ContactSourceType"] = "V";
+      let Result = [];
+      // if (Data.AgentID == 0)
+      //   Result = sellerInfo.RowData.filter((e) => {
+      //     return e.tempAgentID !== Data.tempAgentID;
+      //   });
+      // else
+      //   Result = sellerInfo.RowData.filter((e) => {
+      //     return e.AgentID !== Data.AgentID;
+      //   });
+      Result = secondaryhazardInfo.RowData.filter((e, i) => {
+        return i != value;
+      });
+      const SecResult = Result.map((item) => {
+        return {
+          ...item,
+          ContactSourceType: "V",
+        };
+      });
+      setsecondaryhazardInfo({ ...secondaryhazardInfo, RowData: SecResult });
+
+      setSecondaryHazardTabelProps({
+        ...secondaryHazardTabelProps,
+        ModifiedJson: SecResult,
+      });
+      if (Result.length === 0)
+        setCardValidation({ ...cardValidation, [57]: true });
     } else {
       let Index = fnGetIndex(Data.ContactType, "Grid");
       if (Data.ContactType == 3) {
@@ -1597,8 +1920,27 @@ export default function VendorContacts() {
           ...editCompany,
           [Data.ContactType]: true,
         });
+        
         //let cardHighlight = handleCardValidation(finalJson);
-        setCardValidation({ ...cardValidation, [Data.ContactType]: true });
+        let enableRedBorder = true, UWStatus = ''
+        if(Data['UWStatus'] == undefined)
+          UWStatus = cardInfo?.[0].UWStatus
+        else
+          UWStatus = Data['UWStatus']
+
+        if(UWStatus  == 'New File')
+        {
+          if(Data.ContactType ==2 )
+            enableRedBorder = true
+          else
+          enableRedBorder = false
+        }
+        else 
+          enableRedBorder = true
+ 
+
+
+        setCardValidation({ ...cardValidation, [Data.ContactType]: enableRedBorder});
         //setValidation({ ...validation, [Data.ContactType]: true }); // Need to check
       }
     }
@@ -1706,6 +2048,95 @@ export default function VendorContacts() {
       });
       setData({});
       setInput({});
+      //}
+    }
+    if (item.ActualType == 57) {
+      setModalSecHazardVisible({ SecondaryHazard: true });
+      // if (
+      //   sellerInfo["RowData"].length == 0 ||
+      //   (sellerInfo["RowData"][SellerLength - 1].tempAgentID !== undefined &&
+      //     sellerTabelProps["ModifiedJson"][SellerLength - 1].FirstName !== "")
+      // ) {
+      let NewRowSecondaryHazard = [],
+        SecHazArrLength = 0;
+      // if (
+      //   sellerInfo["RowData"].length == 0 ||
+      //   sellerInfo["RowData"][0].AgentID !== 0
+      // ) {
+      NewRowSecondaryHazard = [
+        {
+          AgentEmail: "",
+          AgentFN: "",
+          AgentFNN: "",
+          AgentID: "",
+          AgentLicense: "",
+          CompEmail: "",
+          CompPhone: "",
+          CompanyAddress: "",
+          CompanyCity: "",
+          CompanyLicense: "",
+          CompanyState: "",
+          ValType: "V",
+          Type: "57",
+          UserType: "V",
+          ActualType: "57",
+          // AgentID: 0,
+          // tempAgentID: secondaryhazardInfo["RowData"].length,
+          // ContactSourceType: "S",
+          // ContactType: 0,
+          // ContactTypename: "Seller",
+          CompanyStatus: "",
+          CompanyStreetAddr: "",
+          CompanyZip: "",
+          Companyname: "",
+          ContactSourceType: "",
+          ContactType: 57,
+          ContactTypename: "Secondary Hazard Insurance",
+          FirstName: "",
+          LastName: "",
+          MiddleName: "",
+          Nickname: "",
+          Phone: "",
+          DisplaySeller: 0,
+          // AgentEmail: "",
+          // CompanyZip: "",
+          // CompanyState: "",
+          // CompanyCity: "",
+          // CompanyStreetAddr: "",
+          IsNew: 1,
+          FileNumber: "",
+          Loanid:
+            Platform.OS === "web"
+              ? handleParamFromURL(document.location.href, "LoanId")
+              : queryString["LoanId"],
+          //   VendorId: 0,
+          isCard: 1,
+          iNoRealtorReprestation: 0,
+          isEditRestricted: 0,
+          isEscrowSame: -1,
+        },
+      ];
+      SecHazArrLength = secondaryhazardInfo["RowData"].length;
+      // }
+
+      let SecData = [
+        ...secondaryhazardInfo["RowData"],
+        ...NewRowSecondaryHazard,
+      ];
+      setsecondaryhazardInfo({ ...secondaryhazardInfo, RowData: SecData });
+      setSecondaryHazardTabelProps({
+        ...secondaryHazardTabelProps,
+        ModifiedJson: [
+          ...secondaryHazardTabelProps["ModifiedJson"],
+          ...NewRowSecondaryHazard,
+        ], //,SecData ,//Data,//
+        EditRow: {
+          ...secondaryHazardTabelProps.EditRow,
+          [SecHazArrLength]: true,
+        },
+      });
+      // setData({});
+      // setInput({});
       //}
     } else {
       setEditCard({
@@ -2104,6 +2535,8 @@ export default function VendorContacts() {
             Keys.push("AgentLicense");
             Keys.push("CompanyLicense");
           }
+          let flag = true;
+
           Keys.forEach((key) => {
             if (
               item[key] === null ||
@@ -2114,7 +2547,15 @@ export default function VendorContacts() {
               return; // Break out of the forEach loop early if any key has an empty value
             }
           });
+          let UWStatus = ''
+          if(item['UWStatus'] == undefined)
+            UWStatus = cardInfo?.[0].UWStatus
+          else
+            UWStatus = item['UWStatus']
 
+          if (UWStatus == 'New File') {
+            if (item["ContactType"] !== 2) isEmpty = false;
+          }
           if (isEmpty) {
             obj[item["ContactType"]] = true;
           } else {
@@ -2248,6 +2689,23 @@ export default function VendorContacts() {
         console.log("Error in handleGetVendorByType method => ", e)
       );
   };
+  //To get the vendor service rights api call
+  const GetVendorServiceRights = (UserId) => {
+    handleAPI({
+      name: "IsVendorServicer",
+      params: {
+        EmpNum: UserId,
+      },
+      method: "POST",
+    })
+      .then((response) => {
+        setVendorServiceRights(response);
+        console.log("retval Vendor Service Rights" + UserId + response);
+      })
+      .catch((e) =>
+        console.log("Error in GetVendorServiceRights method => ", e)
+      );
+  };
   /////////////// Function declarations ends here //////////////////////
 
   //To construct the typeahead options
@@ -2268,6 +2726,7 @@ export default function VendorContacts() {
           <CustomText
             onPress={(e) => {
               if (item.ActualType == 0) handleSellerSelection(item);
+              if (item.ActualType == 57) handleSecondaryHazardSelection(item);
               else handleCompanySelection(item, index, 0);
             }}
             key={item.id}
@@ -4088,13 +4547,16 @@ export default function VendorContacts() {
                                       {row.AgentEmail}
                                     </CustomText> */}
                                       {row.AgentEmail ? (
-                                        <CustomText style={ styles["card-text-underline"]} onPress={() => {
-                                          let subject = "",
-                                            body = "";
-                                          const emailUrl = `mailto:${row.AgentEmail}`;
-                                        //  Linking.openURL(emailUrl);
-                                          window.open(emailUrl,'_self')
-                                        }}>
+                                        <CustomText
+                                          style={styles["card-text-underline"]}
+                                          onPress={() => {
+                                            let subject = "",
+                                              body = "";
+                                            const emailUrl = `mailto:${row.AgentEmail}`;
+                                            //  Linking.openURL(emailUrl);
+                                            window.open(emailUrl, "_self");
+                                          }}
+                                        >
                                           {row.AgentEmail}
                                         </CustomText>
                                       ) : (
@@ -4814,6 +5276,39 @@ export default function VendorContacts() {
                               {`Print ${row.ContactTypename} Request`}
                             </CustomText>
                           </TouchableOpacity>
+                        ) : (
+                          <View></View>
+                        )}
+                        {[7].includes(row["ContactType"]) ? (
+                          <View>
+                            {VendorServiceRights == 1 ||
+                            VendorServiceRights == "1" ? (
+                              <TouchableOpacity
+                                onPress={(e) => {
+                                  // fnPrintVendor(row["ContactType"]);
+                                  toggleSecondaryHazardModal("SecondaryHazard");
+                                }}
+                                style={[
+                                  [styles.buttonContainer],
+                                  { alignSelf: "center", padding: 5 },
+                                  Platform.select({
+                                    android: {
+                                      maxWidth: "50%",
+                                    },
+                                    ios: {
+                                      maxWidth: "50%",
+                                    },
+                                  }),
+                                ]}
+                              >
+                                <CustomText style={[styles["btn"]]}>
+                                  {`Secondary Hazard Insurance`}
+                                </CustomText>
+                              </TouchableOpacity>
+                            ) : (
+                              <View></View>
+                            )}
+                          </View>
                         ) : (
                           <View></View>
                         )}
@@ -6176,6 +6671,1165 @@ export default function VendorContacts() {
                 </View>
               </Modal> */}
             </View>
+            {/* Modal Secondary Hazard Section */}
+            <View style={{ alignItems: "center" }}>
+              {/* Secondary Hazard Insurance Modal */}
+              <Modal
+                isVisible={isModalSecHazardVisible.SecondaryHazard}
+                onBackdropPress={() => {
+                  setModalSecHazardVisible({
+                    isModalSecHazardVisible,
+                    SecondaryHazard: false,
+                  });
+                  fnShowAddNew(0);
+                  setInput({ 0: "" });
+                }}
+                style={{
+                  backgroundColor: "#fff",
+                  //maxWidth: Platform.OS === "web" ? "1000px" : null,
+                  //minWidth: Platform.OS === "web" ? "500px" : null,
+                  margin: 45,
+                  flex: null,
+                  ...Platform.select({
+                    web: {
+                      alignSelf: "center",
+                    },
+                    android: {
+                      width: "96%",
+                      alignSelf: "center",
+                    },
+                    ios: {
+                      width: "96%",
+                      alignSelf: "center",
+                    },
+                  }),
+                }}
+              >
+                <View>
+                  <View style={styles["modal-header"]}>
+                    <CustomText style={styles["modal-header-title"]}>
+                      {"Secondary Hazard Insurance"}
+                    </CustomText>
+                    <AntDesign
+                      name="close"
+                      style={styles["modal-close"]}
+                      strokeWidth={30}
+                      size={24}
+                      color={"black"}
+                      onPress={(e) => {
+                        toggleSecondaryHazardModal("SecondaryHazard");
+                        fnShowAddNew(0);
+                      }}
+                    />
+                  </View>
+                  <View style={styles["modal-container"]}>
+                    <View
+                      style={[
+                        // Platform.OS !== "web" && {
+                        //    width: 430
+                        // },
+                        Platform.select({
+                          android: {
+                            width: "95%",
+                          },
+                          ios: {
+                            width: "95%",
+                          },
+                        }),
+                        // { width: 430 },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles["card-input"],
+                          // styles["card-item"],
+                          // Platform.OS !== "web" && {
+                          //   flexDirection: "row",
+                          //   width:'90%',
+                          //   borderColor:'red',
+                          //   borderWidth:1,
+                          // },
+                        ]}
+                        ref={searchInputRef}
+                      >
+                        <InputField
+                          autoFocus={focusCompany[57] ? true : false}
+                          value={AutoCinput[57]}
+                          label="Search for Company or Agent Name, Email or Cell Phone"
+                          type="default"
+                          name="EmailorCellPhone"
+                          onChangeText={(text) => {
+                            handleCompanySearch(text, 57, "V");
+                          }}
+                          onKeyPress={(e) => {
+                            setSelectedItemIndex(-1);
+                            fnFocusInput(e);
+                          }}
+                          onBlur={(event) => {
+                            fnShowAddNew(57, "Hide", event);
+                          }}
+                          onFocus={(e) => {
+                            fnShowAddNew(57, "Show");
+                          }}
+                          placeholder="Search for Company or Agent Name, Email or Cell Phone"
+                        />
+                        <CustomText
+                          style={{
+                            position: "absolute",
+                            right: 0,
+                            top: 35,
+                          }}
+                        >
+                          {otherProps["0"] && (
+                            <View
+                              style={{ right: Platform.OS === "web" ? 30 : 0 }}
+                            >
+                              <ArrowSpinner />
+                            </View>
+                          )}
+                        </CustomText>
+                        {AutoCompdata[57] &&
+                          isModalSecHazardVisible.SecondaryHazard && (
+                            <FlatList
+                              style={styles["search-drop-down"]}
+                              data={AutoCompdata[57]}
+                              showsVerticalScrollIndicator={true}
+                              removeClippedSubviews={true}
+                              ref={flatListRef}
+                              renderItem={({ item, index: i }) => (
+                                <Pressable
+                                  // ref={btnAddNewRef}
+                                  ref={(ref) => setListRef(i, ref)}
+                                  style={({ pressed }) => [
+                                    {
+                                      opacity: pressed ? 0.5 : 1,
+                                      borderWidth: 1,
+                                      borderColor: "silver",
+                                      borderTopWidth: 0,
+                                      backgroundColor:
+                                        i === selectedItemIndex
+                                          ? "#ffff00"
+                                          : i % 2 == 0
+                                          ? "#d9ecff"
+                                          : "#fff",
+                                    },
+                                    isHovered && styles["HoverBgColor"],
+                                  ]}
+                                  onPress={(e) => {
+                                    handleOnkeyPressFlatlist(
+                                      AutoCompdata[57][selectedItemIndex],
+                                      1
+                                    );
+                                  }}
+                                >
+                                  <View>{handleTypeaheadOption(item, 1)}</View>
+                                </Pressable>
+                              )}
+                              keyExtractor={(item) => item.id}
+                            />
+                          )}
+                      </View>
+                    </View>
+                    <View style={{ paddingTop: 10, zIndex: -1 }}>
+                      <CustomText
+                        style={{
+                          color: "#808080",
+                          fontSize: 13,
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {"Below are the selected Hazard vendors."}
+                      </CustomText>
+                    </View>
+                    <Table
+                      // borderStyle={{
+                      //   borderWidth: 1,
+                      //   borderColor: "transparent",
+                      //   maxWidth: 430,
+                      //color:"#428bca",
+                      // }}
+                      style={{ paddingTop: 10, zIndex: -1 }}
+                    >
+                      {/* Header */}
+                      <View
+                        style={[
+                          styles["table-head"],
+                          { color: "#fff", flexDirection: "row" },
+                        ]}
+                      >
+                        <Cell
+                          // style={[styles['Grid-Cell-Border']]}
+                          data={[
+                            <View
+                              style={{
+                                marginBottom: 5,
+                              }}
+                            >
+                              <View>
+                                <CustomText
+                                  style={{ fontSize: 11, color: "#fff" }}
+                                >
+                                  {"First Name"}
+                                </CustomText>
+                              </View>
+                              <View style={{ marginTop: 5 }}>
+                                <CustomText
+                                  style={{ fontSize: 11, color: "#fff" }}
+                                >
+                                  {"Last Name"}
+                                </CustomText>
+                              </View>
+                            </View>,
+                          ]}
+                          style={[styles["Grid-Cell-Border"], { width: 76 }]}
+                        ></Cell>
+                        <Cell
+                          style={[
+                            styles["Grid-Cell-Border"],
+                            { width: Platform.OS === "web" ? 205 : 150 },
+                          ]}
+                          data={[
+                            <View>
+                              <View>
+                                <CustomText
+                                  style={{ fontSize: 11, color: "#fff" }}
+                                >
+                                  {"Entity Name"}
+                                </CustomText>
+                              </View>
+                              <View style={{ marginTop: 5 }}>
+                                <CustomText
+                                  style={{ fontSize: 11, color: "#fff" }}
+                                >
+                                  {"Address"}
+                                </CustomText>
+                              </View>
+                            </View>,
+                          ]}
+                        ></Cell>
+                        <Cell
+                          data={[
+                            <View>
+                              <View>
+                                <CustomText
+                                  style={{ fontSize: 11, color: "#fff" }}
+                                >
+                                  {"Cell Phone"}
+                                </CustomText>
+                              </View>
+                              <View style={{ marginTop: 5 }}>
+                                <CustomText
+                                  style={{ fontSize: 11, color: "#fff" }}
+                                >
+                                  {"Email"}
+                                </CustomText>
+                              </View>
+                              <View style={{ marginTop: 5 }}>
+                                <CustomText
+                                  style={{ fontSize: 11, color: "#fff" }}
+                                >
+                                  {"Policy Number"}
+                                </CustomText>
+                              </View>
+                            </View>,
+                          ]}
+                          style={[{ width: 100 }]}
+                        ></Cell>
+                        {/* <Cell data={[]} style={{ width: 70 }}></Cell> */}
+                        {/* <Cell data={"T1"}></Cell>
+                      <Cell data={"T1"}></Cell>
+                      <Cell data={"T1"}></Cell> */}
+                      </View>
+                      <>
+                        {secondaryhazardInfo.RowData.length === 0 ? (
+                          <View>
+                            <CustomText
+                              style={{
+                                fontSize: 11,
+                                paddingLeft: 65,
+                                borderBottomColor: "black",
+                                borderWidth: "thin",
+                              }}
+                            >
+                              {"No Secondary Hazard Insurance Selected"}
+                            </CustomText>
+                          </View>
+                        ) : null}
+                      </>
+                      {secondaryhazardInfo.RowData?.map((rowData, index) => (
+                        <>
+                          {/* {sellerTabelProps["EditRow"][index] !== true && ( */}
+                          <TableWrapper
+                            key={index - 1}
+                            style={[
+                              styles["table-row"],
+                              {
+                                backgroundColor:
+                                  index % 2 == 0 ? "#deebf7" : "#fff",
+                                maxWidth: 430,
+                              },
+                              secondaryhazardInfo.RowData.length - 1 ===
+                                index && styles["table-row-bottom-border"],
+                              styles["table-row-LeftRight-border"],
+                            ]}
+                          >
+                            {secondaryHazardTabelProps["EditRow"][index] !==
+                            true ? (
+                              <>
+                                <Cell
+                                  width={76}
+                                  key={"cell1"}
+                                  style={[
+                                    Platform.select({
+                                      web: { display: "block" },
+                                    }),
+                                    styles["Grid-Cell-Border"],
+                                  ]}
+                                  data={[
+                                    <View>
+                                      <View>
+                                        <CustomText
+                                          style={[
+                                            { fontSize: 11, color: "#4b545d" },
+                                          ]}
+                                        >
+                                          {rowData.FirstName}
+                                        </CustomText>
+                                      </View>
+                                      <View>
+                                        <CustomText
+                                          style={{
+                                            fontSize: 11,
+                                            color: "#4b545d",
+                                            marginTop: 5,
+                                          }}
+                                        >
+                                          {rowData.LastName}
+                                        </CustomText>
+                                      </View>
+                                    </View>,
+                                  ]}
+                                />
+                                {/* <Cell
+                                width={74}
+                                key={"cell1"}
+                                data={[
+                                  <CustomText
+                                    style={{ fontSize: 11, color: "#4b545d" }}
+                                  >
+                                    {rowData.LastName}
+                                  </CustomText>,
+                                ]}
+                              /> */}
+                                <Cell
+                                  width={Platform.OS === "web" ? 205 : 150}
+                                  key={"cell2"}
+                                  style={[
+                                    Platform.select({
+                                      web: { display: "block" },
+                                    }),
+                                    styles["Grid-Cell-Border"],
+                                  ]}
+                                  data={[
+                                    <View>
+                                      {/* <View>
+                                        <CustomText
+                                          style={{
+                                            fontSize: 11,
+                                            color: "#4b545d",
+                                          }}
+                                        >
+                                          {rowData.Companyname}
+                                        </CustomText>
+                                      </View> */}
+                                      <View
+                                        style={{ alignItems: "flex-start" }}
+                                      >
+                                        <View style={{ maxWidth: 160 }}>
+                                          <CustomText
+                                            bold={true}
+                                            style={[
+                                              Platform.OS === "web" &&
+                                                styles["card-text-underline"],
+                                              {
+                                                marginRight: 5,
+                                                flexWrap: "wrap",
+                                                width:
+                                                  Platform.OS !== "web" &&
+                                                  "60%",
+                                              },
+                                            ]}
+                                            onPress={
+                                              (e) => fnOpenVendorPage(rowData)
+                                              // handleWebPageOpen(
+                                              //   row,
+                                              //   Platform.OS === "web" &&
+                                              //     handleParamFromURL(
+                                              //       document.location.href,
+                                              //       "SessionId"
+                                              //     ),
+                                              //   "http://www.solutioncenter.biz/VendorChanges/Presentation/Webforms/VendorInfoChangeRequest_bootstrap.aspx?SessionId="
+                                              // )
+                                            }
+                                          >
+                                            {rowData.Companyname}
+                                          </CustomText>
+                                        </View>
+                                      </View>
+                                      <View style={{ marginTop: 5 }}>
+                                        <View>
+                                          <CustomText
+                                            style={{
+                                              fontSize: 11,
+                                              color: "#4b545d",
+                                            }}
+                                          >
+                                            {`${rowData.CompanyStreetAddr}`}
+                                          </CustomText>
+                                        </View>
+                                        <View>
+                                          <CustomText
+                                            style={{
+                                              fontSize: 11,
+                                              color: "#4b545d",
+                                            }}
+                                          >
+                                            {`${rowData.CompanyCity}${
+                                              rowData.CompanyCity && ","
+                                            } ${rowData.CompanyState} ${
+                                              rowData.CompanyZip
+                                            }`}
+                                          </CustomText>
+                                        </View>
+                                      </View>
+                                    </View>,
+                                  ]}
+                                />
+
+                                <Cell
+                                  width={125}
+                                  key={"cell3"}
+                                  //style={[styles['Grid-Cell-Border']]}
+                                  data={[
+                                    <View>
+                                      <View style={{ width: 100 }}>
+                                        <CustomText
+                                          style={{
+                                            fontSize: 11,
+                                            color: "#4b545d",
+                                          }}
+                                        >
+                                          {rowData.Phone}
+                                        </CustomText>
+                                        <CustomText
+                                          style={{
+                                            fontSize: 11,
+                                            color: "#4b545d",
+                                            marginTop: 5,
+                                          }}
+                                        >
+                                          {rowData.AgentEmail}
+                                        </CustomText>
+                                        <CustomText
+                                          style={{
+                                            fontSize: 11,
+                                            color: "#4b545d",
+                                            marginTop: 5,
+                                          }}
+                                        >
+                                          {rowData.FileNumber}
+                                        </CustomText>
+                                      </View>
+                                      <View
+                                        style={{
+                                          paddingTop: 5,
+                                          paddingBottom: 5,
+                                          flexDirection: "row",
+                                        }}
+                                      >
+                                        <TouchableOpacity
+                                          style={[
+                                            [styles.buttonContainer],
+                                            { alignSelf: "center" },
+                                          ]}
+                                          onPress={(e) => {
+                                            setSecondaryHazardTabelProps({
+                                              ...secondaryHazardTabelProps,
+                                              EditRow: {
+                                                ...secondaryHazardTabelProps[
+                                                  "EditRow"
+                                                ],
+                                                [index]: true,
+                                              },
+                                            });
+                                          }}
+                                        >
+                                          <CustomText
+                                            style={[
+                                              styles["btn"],
+                                              {
+                                                fontSize: 10,
+                                                minWidth:
+                                                  Platform.OS === "web"
+                                                    ? 36
+                                                    : 25,
+                                                maxWidth:
+                                                  Platform.OS === "web"
+                                                    ? 36
+                                                    : 25,
+                                              },
+                                            ]}
+                                          >
+                                            {"Edit"}
+                                          </CustomText>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                          style={[
+                                            [styles.buttonContainer],
+                                            { alignSelf: "center" },
+                                          ]}
+                                          onPress={(e) => {
+                                            handleRemoveSellerOrAgent(
+                                              rowData,
+                                              index
+                                            );
+                                          }}
+                                        >
+                                          <CustomText
+                                            style={[
+                                              styles["btn"],
+                                              { fontSize: 10 },
+                                            ]}
+                                          >
+                                            {"Remove"}
+                                          </CustomText>
+                                        </TouchableOpacity>
+                                      </View>
+                                    </View>,
+                                  ]}
+                                />
+                                {/* <Cell
+                                key={"cell4"}
+                                width={70}
+                                data={[
+
+                                ]}
+                              /> */}
+                              </>
+                            ) : (
+                              <>
+                                <View
+                                  style={{
+                                    width:
+                                      Platform.OS === "web" ? "100%" : "98%",
+                                  }}
+                                >
+                                  <View
+                                    style={[
+                                      styles["card-input"],
+                                      styles["card-item"],
+                                      { paddingTop: 20, borderColor: "red" },
+                                    ]}
+                                  >
+                                    <InputField
+                                      //autoFocus
+                                      validate={
+                                        secondaryHazardTabelProps[
+                                          "ModifiedJson"
+                                        ][index].Companyname === ""
+                                          ? true
+                                          : false
+                                      }
+                                      type="default"
+                                      label="Company Name"
+                                      value={
+                                        secondaryHazardTabelProps[
+                                          "ModifiedJson"
+                                        ][index].Companyname
+                                      }
+                                      placeholder="Company Name"
+                                      onChangeText={(Text) => {
+                                        handleSecondaryHazardGridChange(
+                                          index,
+                                          "Companyname",
+                                          Text
+                                        );
+                                      }}
+                                    />
+                                  </View>
+                                  <View
+                                    style={[
+                                      styles["card-body"],
+                                      { padding: 0 },
+                                      Platform.select({
+                                        android: {
+                                          width: "49%",
+                                        },
+                                        ios: {
+                                          width: "49%",
+                                        },
+                                      }),
+                                    ]}
+                                  >
+                                    <View style={styles["card-input"]}>
+                                      <InputField
+                                        validate={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].FirstName === ""
+                                            ? true
+                                            : false
+                                        }
+                                        autoFocus
+                                        type="default"
+                                        value={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].FirstName
+                                        }
+                                        label="Agent First Name"
+                                        placeholder="Agent First Name"
+                                        // style={[
+                                        //   styles["grid-input"],
+                                        //   { outline: "none" },
+                                        // ]}
+                                        onChangeText={(Text) => {
+                                          handleSecondaryHazardGridChange(
+                                            index,
+                                            "FirstName",
+                                            Text
+                                          );
+                                        }}
+                                      />
+                                    </View>
+                                    <View style={styles["card-input"]}>
+                                      <InputField
+                                        validate={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].LastName === ""
+                                            ? true
+                                            : false
+                                        }
+                                        //autoFocus
+                                        type="default"
+                                        label="Agent Last Name"
+                                        value={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].LastName
+                                        }
+                                        placeholder="Agent Last Name"
+                                        // style={[
+                                        //   styles["grid-input"],
+                                        //   { outline: "none", display: "block" },
+                                        // ]}
+                                        onChangeText={(Text) => {
+                                          handleSecondaryHazardGridChange(
+                                            index,
+                                            "LastName",
+                                            Text
+                                          );
+                                        }}
+                                      />
+                                    </View>
+                                  </View>
+
+                                  {/* <View
+                                    style={{
+                                      padding: 0,
+                                      flexDirection: "row",
+                                    }}
+                                  >
+                                    <View
+                                      style={[
+                                        styles["card-input"],
+                                        { paddingTop: 5 },
+                                      ]}
+                                    > */}
+                                  <View
+                                    style={{
+                                      padding: 0,
+                                      paddingTop: 5,
+                                      flexDirection: "row",
+                                    }}
+                                  >
+                                    <View
+                                      style={[
+                                        styles["card-input"],
+                                        { width: "35%", marginRight: 10 },
+                                      ]}
+                                    >
+                                      <InputField
+                                        validate={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].Phone === ""
+                                            ? true
+                                            : false
+                                        }
+                                        //autoFocus
+                                        type="default"
+                                        label="Agent Cell Phone"
+                                        value={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].Phone
+                                        }
+                                        placeholder="Agent Cell Phone"
+                                        onChangeText={(Text) => {
+                                          handleSecondaryHazardGridChange(
+                                            index,
+                                            "Phone",
+                                            Text
+                                          );
+                                        }}
+                                        onBlur={(e) => {
+                                          let number = FormatPhoneLogin(
+                                            secondaryHazardTabelProps[
+                                              "ModifiedJson"
+                                            ][index].Phone
+                                          );
+                                          handleSecondaryHazardGridChange(
+                                            index,
+                                            "Phone",
+                                            number
+                                          );
+                                        }}
+                                      />
+                                    </View>
+                                    <View
+                                      style={[
+                                        styles["card-input"],
+                                        { width: "62%" },
+                                      ]}
+                                    >
+                                      <InputField
+                                        validate={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].AgentEmail === ""
+                                            ? true
+                                            : false
+                                        }
+                                        //autoFocus
+                                        type="default"
+                                        value={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].AgentEmail
+                                        }
+                                        label="Agent Email"
+                                        placeholder="Agent Email"
+                                        onChangeText={(Text) => {
+                                          handleSecondaryHazardGridChange(
+                                            index,
+                                            "AgentEmail",
+                                            Text
+                                          );
+                                        }}
+                                      />
+                                    </View>
+                                  </View>
+                                  <View
+                                    style={{
+                                      padding: 0,
+                                      flexDirection: "row",
+                                      paddingTop: 5,
+                                      paddingBottom: 5,
+                                    }}
+                                  >
+                                    <View
+                                      style={[
+                                        styles["card-input"],
+                                        { width: "55%", marginRight: 10 },
+                                      ]}
+                                    >
+                                      <InputField
+                                        validate={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].CompanyStreetAddr === ""
+                                            ? true
+                                            : false
+                                        }
+                                        //autoFocus
+                                        type="default"
+                                        label="Company Street Address"
+                                        value={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].CompanyStreetAddr
+                                        }
+                                        placeholder="Company Street Address"
+                                        onChangeText={(Text) => {
+                                          handleSecondaryHazardGridChange(
+                                            index,
+                                            "CompanyStreetAddr",
+                                            Text
+                                          );
+                                        }}
+                                      />
+                                    </View>
+
+                                    <View
+                                      style={[
+                                        styles["card-input"],
+                                        { width: "42%" },
+                                      ]}
+                                    >
+                                      <InputField
+                                        validate={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].CompanyZip === ""
+                                            ? true
+                                            : false
+                                        }
+                                        //autoFocus
+                                        type="default"
+                                        value={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].CompanyZip
+                                        }
+                                        label="Company Zip Code"
+                                        placeholder="Company Zip Code"
+                                        // style={[
+                                        //   styles["grid-input"],
+                                        //   { outline: "none" },
+                                        // ]}
+                                        onChangeText={(Text) => {
+                                          handleSecondaryHazardGridChange(
+                                            index,
+                                            "CompanyZip",
+                                            Text
+                                          );
+                                        }}
+                                        onBlur={(e) => {
+                                          fnAutoPopulateStateCity(
+                                            secondaryHazardTabelProps[
+                                              "ModifiedJson"
+                                            ][index].CompanyZip,
+                                            index,
+                                            "SecondaryHazard"
+                                          );
+                                        }}
+                                      />
+                                    </View>
+                                  </View>
+                                  <View
+                                    style={{
+                                      padding: 0,
+                                      flexDirection: "row",
+                                      paddingTop: 5,
+                                      paddingBottom: 5,
+                                    }}
+                                  >
+                                    {/* <View
+                                      style={[
+                                        styles["card-input"],
+                                        { paddingTop: 5 },
+                                      ]}
+                                    > */}
+
+                                    <View
+                                      style={[
+                                        styles["card-input"],
+                                        //  styles["card-item"],
+                                        { width: "50%", marginRight: 10 },
+                                      ]}
+                                    >
+                                      <InputField
+                                        validate={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].CompanyCity === ""
+                                            ? true
+                                            : false
+                                        }
+                                        //autoFocus
+                                        type="default"
+                                        label="Company City"
+                                        value={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].CompanyCity
+                                        }
+                                        placeholder="Company City"
+                                        // style={[
+                                        //   styles["grid-input"],
+                                        //   { outline: "none", display: "block" },
+                                        // ]}
+                                        onChangeText={(Text) => {
+                                          handleSecondaryHazardGridChange(
+                                            index,
+                                            "CompanyCity",
+                                            Text
+                                          );
+                                        }}
+                                      />
+                                    </View>
+                                    <View
+                                      style={[
+                                        styles["card-input"],
+                                        //styles["card-item"],
+                                        //{ width: "53%" , marginRight: 10 },
+                                      ]}
+                                    >
+                                      <InputField
+                                        validate={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].CompanyState === ""
+                                            ? true
+                                            : false
+                                        }
+                                        //autoFocus
+                                        type="default"
+                                        label="Company State"
+                                        value={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].CompanyState
+                                        }
+                                        placeholder="Company State"
+                                        // style={[
+                                        //   styles["grid-input"],
+                                        //   { outline: "none", display: "block" },
+                                        // ]}
+                                        onChangeText={(Text) => {
+                                          handleSecondaryHazardGridChange(
+                                            index,
+                                            "CompanyState",
+                                            Text
+                                          );
+                                        }}
+                                      />
+                                    </View>
+                                  </View>
+                                  <View>
+                                    <View
+                                      style={[
+                                        styles["card-input"],
+                                        { width: "55%", marginRight: 10 },
+                                      ]}
+                                    >
+                                      <InputField
+                                        validate={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].CompPhone === ""
+                                            ? true
+                                            : false
+                                        }
+                                        //autoFocus
+                                        type="default"
+                                        label="Company Phone"
+                                        value={
+                                          secondaryHazardTabelProps[
+                                            "ModifiedJson"
+                                          ][index].CompPhone
+                                        }
+                                        placeholder="Company Phone"
+                                        onChangeText={(Text) => {
+                                          handleSecondaryHazardGridChange(
+                                            index,
+                                            "CompPhone",
+                                            Text
+                                          );
+                                        }}
+                                        onBlur={(e) => {
+                                          let number = FormatPhoneLogin(
+                                            secondaryHazardTabelProps[
+                                              "ModifiedJson"
+                                            ][index].CompPhone
+                                          );
+                                          handleSecondaryHazardGridChange(
+                                            index,
+                                            "CompPhone",
+                                            number
+                                          );
+                                        }}
+                                      />
+                                    </View>
+                                    <View
+                                      style={{
+                                        padding: 0,
+                                        paddingTop: 5,
+                                        flexDirection: "row",
+                                      }}
+                                    >
+                                      <View
+                                        style={[
+                                          styles["card-input"],
+                                          { width: "55%", marginRight: 10 },
+                                        ]}
+                                      >
+                                        <InputField
+                                          validate={
+                                            secondaryHazardTabelProps[
+                                              "ModifiedJson"
+                                            ][index].FileNumber === ""
+                                              ? true
+                                              : false
+                                          }
+                                          //autoFocus
+                                          type="default"
+                                          label="Policy Number"
+                                          value={
+                                            secondaryHazardTabelProps[
+                                              "ModifiedJson"
+                                            ][index].FileNumber
+                                          }
+                                          placeholder="Policy Number"
+                                          onChangeText={(Text) => {
+                                            handleSecondaryHazardGridChange(
+                                              index,
+                                              "FileNumber",
+                                              Text
+                                            );
+                                          }}
+                                          onBlur={(e) => {
+                                            let number = FormatPhoneLogin(
+                                              secondaryHazardTabelProps[
+                                                "ModifiedJson"
+                                              ][index].FileNumber
+                                            );
+                                            handleSecondaryHazardGridChange(
+                                              index,
+                                              "FileNumber",
+                                              number
+                                            );
+                                          }}
+                                        />
+                                      </View>
+                                    </View>
+                                  </View>
+                                  <View
+                                    style={{
+                                      paddingTop: 5,
+                                      paddingBottom: 5,
+                                      flexDirection: "row",
+                                    }}
+                                  >
+                                    {secondaryHazardTabelProps["EditRow"][
+                                      index
+                                    ] === true && (
+                                      <>
+                                        <TouchableOpacity
+                                          style={[
+                                            [styles.buttonContainer],
+                                            {
+                                              alignSelf: "center",
+                                              padding: 5,
+                                            },
+                                          ]}
+                                          onPress={(e) => {
+                                            setSecondaryHazardTabelProps({
+                                              ...secondaryHazardTabelProps,
+                                              EditRow: {
+                                                ...secondaryHazardTabelProps[
+                                                  "EditRow"
+                                                ],
+                                                [index]: false,
+                                              },
+                                            });
+                                            handleVendorSave(
+                                              index,
+                                              "SecondaryHazard"
+                                            );
+                                          }}
+                                        >
+                                          <CustomText
+                                            style={[
+                                              styles["btn"],
+                                              {
+                                                fontSize: 10,
+                                                minWidth:
+                                                  Platform.OS === "web"
+                                                    ? 36
+                                                    : 28,
+                                                maxWidth:
+                                                  Platform.OS === "web"
+                                                    ? 36
+                                                    : 28,
+                                              },
+                                            ]}
+                                          >
+                                            {"Save"}
+                                          </CustomText>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                          style={[
+                                            [styles.buttonContainer],
+                                            {
+                                              alignSelf: "center",
+                                              padding: 5,
+                                            },
+                                          ]}
+                                          onPress={(e) => {
+                                            setSecondaryHazardTabelProps({
+                                              ...secondaryHazardTabelProps,
+                                              EditRow: {
+                                                ...secondaryHazardTabelProps[
+                                                  "EditRow"
+                                                ],
+                                                [index]: false,
+                                              },
+                                            });
+                                          }}
+                                        >
+                                          <CustomText
+                                            style={[
+                                              styles["btn"],
+                                              {
+                                                fontSize: 10,
+                                                minWidth:
+                                                  Platform.OS === "web"
+                                                    ? 36
+                                                    : 28,
+                                                maxWidth:
+                                                  Platform.OS === "web"
+                                                    ? 36
+                                                    : 28,
+                                              },
+                                            ]}
+                                          >
+                                            {"Cancel"}
+                                          </CustomText>
+                                        </TouchableOpacity>
+                                      </>
+                                    )}
+                                  </View>
+                                  {/* </View> */}
+                                </View>
+                              </>
+                            )}
+                          </TableWrapper>
+                        </>
+                      ))}
+                    </Table>
+                  </View>
+                  <View style={[styles["modal-footer"], { zIndex: -1 }]}>
+                    <TouchableOpacity
+                      style={[
+                        [styles.buttonContainer],
+                        { alignSelf: "center", padding: 5 },
+                      ]}
+                      onPress={() => {
+                        setModalSecHazardVisible({
+                          isModalSecHazardVisible,
+                          SecondaryHazard: false,
+                        });
+                      }}
+                    >
+                      <CustomText style={[styles["btn"]]}>{"Close"}</CustomText>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </Modal>
+            </View>
           </>
         )}
       </View>
@@ -6216,7 +7870,9 @@ export default function VendorContacts() {
                   }}
                   style={[styles.buttonContainer]}
                 >
-                  <CustomText style={[styles["btn"]]}>{`${IsQoute ? `View`:`Get`} Quote`}</CustomText>
+                  <CustomText style={[styles["btn"]]}>{`${
+                    IsQoute ? `View` : `Get`
+                  } Quote`}</CustomText>
                 </TouchableOpacity>
               </View>
               <View style={{ gap: 5 }}>
