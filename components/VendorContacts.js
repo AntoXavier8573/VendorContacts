@@ -116,6 +116,7 @@ export default function VendorContacts() {
   const [IsQoute, setIsQuote] = useState(false);
   const [IsSecondayHazard, setIsSecondaryHazard] = useState(true);
 
+  const [enableGroupEmail, setEnableGroupEmail] = useState({});
   //useRef
   const btnAddNewRef = useRef([]); //modified from singular to array
   const searchInputRef = useRef(null);
@@ -322,11 +323,10 @@ export default function VendorContacts() {
         let Data = JSON.parse(response);
         //let Data = Rows;
         console.log("Whole Info ==>", Data);
-        let UWStatus = ''
+        let UWStatus = "";
         let sellerData = Data.filter((e) => e.ContactType === 0);
-        if (sellerData.length == 1 && sellerData[0].AgentID == 0)
-        {
-          UWStatus = sellerData[0]['UWStatus']
+        if (sellerData.length == 1 && sellerData[0].AgentID == 0) {
+          UWStatus = sellerData[0]["UWStatus"];
           sellerData = [];
         }
         setSellerInfo({ ...sellerInfo, RowData: sellerData });
@@ -376,7 +376,8 @@ export default function VendorContacts() {
           let uniqueRows = getUniqueObjectsByKey(CardData, "ContactTypename");
           console.log("Card info ==>", uniqueRows);
           let cardHighlight = handleCardValidation(uniqueRows);
-          if (sellerData.length == 0 && UWStatus != 'New File') cardHighlight["0"] = true;
+          if (sellerData.length == 0 && UWStatus != "New File")
+            cardHighlight["0"] = true;
           if (secondaryhazardData.length == 0) cardHighlight["57"] = true;
           setCardValidation({ ...cardValidation, ...cardHighlight }); // to show the red border in the card
           setCopyAgent({
@@ -803,6 +804,7 @@ export default function VendorContacts() {
           ["isCard"]: finalJson[0].isCard,
           ["isEscrowSame"]: finalJson[0].isEscrowSame,
           ["FileNumber"]: finalJson[0].FileNumber,
+          ["GroupEmail"]: finalJson[0].GroupEmail,
         };
         if (finalJson[0].isEscrowSame == 1) {
           // updateObj[index + 1] = updateObj[index];
@@ -833,6 +835,7 @@ export default function VendorContacts() {
             ["LastName"]: finalJson[0].LastName,
             ["isCard"]: finalJson[0].isCard,
             ["FileNumber"]: finalJson[0].FileNumber,
+            ["GroupEmail"]: finalJson[0].GroupEmail,
           };
         }
         return updateObj;
@@ -867,6 +870,8 @@ export default function VendorContacts() {
             ["Nickname"]: finalJson[0].Nickname,
             ["LastName"]: finalJson[0].LastName,
             ["isCard"]: finalJson[0].isCard,
+            ["GroupEmail"]: finalJson[0].GroupEmail,
+
           };
           return updateObj;
         });
@@ -1280,6 +1285,8 @@ export default function VendorContacts() {
               ["isCard"]: finalJson[0].isCard,
               ["isEscrowSame"]: finalJson[0].isEscrowSame,
               ["FileNumber"]: finalJson[0].FileNumber,
+              ["GroupEmail"]: finalJson[0].GroupEmail,
+              
             };
 
             return updateObj;
@@ -1314,6 +1321,8 @@ export default function VendorContacts() {
               ["isCard"]: finalJson[0].isCard,
               ["isEscrowSame"]: finalJson[0].isEscrowSame,
               ["FileNumber"]: finalJson[0].FileNumber,
+              ["GroupEmail"]: finalJson[0].GroupEmail,
+
             };
 
             return updateObj;
@@ -1920,27 +1929,22 @@ export default function VendorContacts() {
           ...editCompany,
           [Data.ContactType]: true,
         });
-        
+
         //let cardHighlight = handleCardValidation(finalJson);
-        let enableRedBorder = true, UWStatus = ''
-        if(Data['UWStatus'] == undefined)
-          UWStatus = cardInfo?.[0].UWStatus
-        else
-          UWStatus = Data['UWStatus']
+        let enableRedBorder = true,
+          UWStatus = "";
+        if (Data["UWStatus"] == undefined) UWStatus = cardInfo?.[0].UWStatus;
+        else UWStatus = Data["UWStatus"];
 
-        if(UWStatus  == 'New File')
-        {
-          if(Data.ContactType ==2 )
-            enableRedBorder = true
-          else
-          enableRedBorder = false
-        }
-        else 
-          enableRedBorder = true
- 
+        if (UWStatus == "New File") {
+          if (Data.ContactType == 2) enableRedBorder = true;
+          else enableRedBorder = false;
+        } else enableRedBorder = true;
 
-
-        setCardValidation({ ...cardValidation, [Data.ContactType]: enableRedBorder});
+        setCardValidation({
+          ...cardValidation,
+          [Data.ContactType]: enableRedBorder,
+        });
         //setValidation({ ...validation, [Data.ContactType]: true }); // Need to check
       }
     }
@@ -2314,8 +2318,12 @@ export default function VendorContacts() {
       .replaceAll("#", "|H|")
       .replaceAll("&", "|A|");
     if (isBlockSave.length > 0 && ModifiedGrid.length == 0) return;
-    const parentElLoader = window.parent.document.getElementById("divLoader");
-    parentElLoader.style.display = "block";
+   try {
+     const parentElLoader = window.parent.document.getElementById("divLoader");
+     parentElLoader.style.display = "block";
+   } catch (error) {
+    
+   }
     handleAPI({
       name: "Save_VendorLoanInfo_Bulk",
       params: {
@@ -2547,13 +2555,11 @@ export default function VendorContacts() {
               return; // Break out of the forEach loop early if any key has an empty value
             }
           });
-          let UWStatus = ''
-          if(item['UWStatus'] == undefined)
-            UWStatus = cardInfo?.[0].UWStatus
-          else
-            UWStatus = item['UWStatus']
+          let UWStatus = "";
+          if (item["UWStatus"] == undefined) UWStatus = cardInfo?.[0].UWStatus;
+          else UWStatus = item["UWStatus"];
 
-          if (UWStatus == 'New File') {
+          if (UWStatus == "New File") {
             if (item["ContactType"] !== 2) isEmpty = false;
           }
           if (isEmpty) {
@@ -4571,6 +4577,21 @@ export default function VendorContacts() {
                                         </CustomText>
                                       )}
                                     </View>
+                                    <View style={styles["card-item"]}>
+
+                                  {row.GroupEmail && (
+                                      <CustomText 
+                                      style={styles["card-text-underline"]}
+                                          onPress={() => {
+                                            let subject = "",
+                                              body = "";
+                                            const emailUrl = `mailto:${row.GroupEmail}`;
+                                            //  Linking.openURL(emailUrl);
+                                            window.open(emailUrl, "_self");
+                                          }}
+                                      >{`${row.GroupEmail} (Group)`}</CustomText>
+                                    )}
+                                    </View>
                                     {row["ContactType"] !== 7 && (
                                       <>
                                         <View
@@ -4830,8 +4851,12 @@ export default function VendorContacts() {
                             </View>
                             <View
                               style={[
-                                styles["card-body"],
-                                { paddingTop: 0 },
+                                {
+                                  padding: 10,
+                                  paddingTop: 0,
+                                  paddingBottom: 0,
+                                  flexDirection: "row",
+                                },
                                 Platform.select({
                                   android: {
                                     paddingTop: 5,
@@ -4846,7 +4871,8 @@ export default function VendorContacts() {
                                 <View
                                   style={[
                                     styles["card-input"],
-                                    styles["card-item"],
+                                   // styles["card-item"],
+                                  { width: "31%" },
                                   ]}
                                 >
                                   <InputField
@@ -4862,12 +4888,12 @@ export default function VendorContacts() {
                                       //   cardInfo[index]["ContactType"]
                                       // ]["AgentLicense"]
                                     }
-                                    label="Agent License Number"
+                                    label="License Number"
                                     // autoFocus
                                     type="default"
                                     name=""
                                     value={cardInfo[index]["AgentLicense"]}
-                                    placeholder="Agent License Number"
+                                    placeholder="License Number"
                                     onChangeText={(Text) => {
                                       handleCardChange(
                                         index,
@@ -4878,7 +4904,78 @@ export default function VendorContacts() {
                                     // style ={styles.InputField}
                                   />
                                 </View>
-                              ) : null}
+                              ) : (
+                                <View
+                                style={[
+                                  styles["card-input"],
+                                  // styles["card-item"],
+                                  { width: "31%" },
+                                ]}
+                                ></View>
+                              )}
+                              <View
+                                style={[
+                                  styles["card-input"],
+                                   //styles["card-item"],
+                                   { width: "67%", marginLeft: 9 },
+                                ]}
+                              >
+                                {enableGroupEmail[
+                                  cardInfo[index]["ContactType"]
+                                ] || cardInfo[index]["GroupEmail"] ? (
+                                  <InputField
+                                    validate={
+                                      saveValidation[
+                                        cardInfo[index]["ContactType"]
+                                      ] !== undefined
+                                        ? saveValidation[
+                                            cardInfo[index]["ContactType"]
+                                          ]["GroupEmail"]
+                                        : false
+                                      // saveValidation[
+                                      //   cardInfo[index]["ContactType"]
+                                      // ]["AgentLicense"]
+                                    }
+                                    label="Group Email"
+                                    // autoFocus
+                                    type="default"
+                                    name=""
+                                    value={cardInfo[index]["GroupEmail"]}
+                                    placeholder="Group Email"
+                                    onChangeText={(Text) => {
+                                      handleCardChange(
+                                        index,
+                                        "GroupEmail",
+                                        Text
+                                      );
+                                    }}
+                                  />
+                                ) : (
+                                  <CustomText
+                                    style={{
+                                      alignSelf: "end",
+                                      alignContent:'center',
+                                      flex: 1,
+                                      fontSize: 12,
+                                      color: "#215f9a",
+                                      float: "left",cursor:'pointer'
+                                    }}
+                                    onClick={() => {
+                                      setEnableGroupEmail((preInfo) => {
+                                        return {
+                                          ...preInfo,
+                                          [cardInfo[index]["ContactType"]]:
+                                            !enableGroupEmail[
+                                              cardInfo[index]["ContactType"]
+                                            ],
+                                        };
+                                      });
+                                    }}
+                                  >
+                                    + Add Group Email
+                                  </CustomText>
+                                )}
+                              </View>
                             </View>
                             <View
                               style={[
@@ -8577,6 +8674,19 @@ export default function VendorContacts() {
                                       </CustomText>
                                     )}
                                   </View>
+                                  <View style={styles["card-item"]}>
+
+                                  {row.GroupEmail && (
+                                      <CustomText style={styles["card-text-underline"]}
+                                      onPress={() => {
+                                        let subject = "",
+                                          body = "";
+                                        const emailUrl = `mailto:${row.GroupEmail}`;
+                                        //  Linking.openURL(emailUrl);
+                                        window.open(emailUrl, "_self");
+                                      }}>{`${row.GroupEmail} (Group)`}</CustomText>
+                                    )}
+                                    </View>
                                   {row["ContactType"] !== 7 && (
                                     <>
                                       <View
