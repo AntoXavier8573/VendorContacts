@@ -4577,9 +4577,10 @@ export default function VendorContacts() {
                                         </CustomText>
                                       )}
                                     </View>
-                                    <View style={styles["card-item"]}>
+                                    <View style={[styles["card-item"],{flexDirection:'row',width:'fit-content'}]}>
 
                                   {row.GroupEmail && (
+                                    <>
                                       <CustomText 
                                       style={styles["card-text-underline"]}
                                           onPress={() => {
@@ -4589,7 +4590,7 @@ export default function VendorContacts() {
                                             //  Linking.openURL(emailUrl);
                                             window.open(emailUrl, "_self");
                                           }}
-                                      >{`${row.GroupEmail} (Group)`}</CustomText>
+                                      >{`${row.GroupEmail}`}</CustomText><CustomText>{' (Group)'}</CustomText></>
                                     )}
                                     </View>
                                     {row["ContactType"] !== 7 && (
@@ -8674,9 +8675,10 @@ export default function VendorContacts() {
                                       </CustomText>
                                     )}
                                   </View>
-                                  <View style={styles["card-item"]}>
+                                  <View style={[styles["card-item"],{flexDirection:'row',width:'fit-content'}]}>
 
                                   {row.GroupEmail && (
+                                    <>
                                       <CustomText style={styles["card-text-underline"]}
                                       onPress={() => {
                                         let subject = "",
@@ -8684,7 +8686,7 @@ export default function VendorContacts() {
                                         const emailUrl = `mailto:${row.GroupEmail}`;
                                         //  Linking.openURL(emailUrl);
                                         window.open(emailUrl, "_self");
-                                      }}>{`${row.GroupEmail} (Group)`}</CustomText>
+                                      }}>{`${row.GroupEmail}`}</CustomText> <CustomText>{' (Group)'}</CustomText></>
                                     )}
                                     </View>
                                   {row["ContactType"] !== 7 && (
