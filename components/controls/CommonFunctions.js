@@ -59,13 +59,14 @@ const handleWebPageOpen = (RowData, SessionId, url, position) => {
   );
 };
 
-const FormatPhoneLogin = (PhoneNo) => {
+const FormatPhoneLogin = (PhoneNo,flag) => {
   console.log("phone number is converting");
   if (PhoneNo != "") {
     PhoneNo = PhoneNo.replaceAll("-", "");
     PhoneNo = PhoneNo.replaceAll("(", "");
     PhoneNo = PhoneNo.replaceAll(")", "");
     PhoneNo = PhoneNo.replaceAll(" ", "");
+    if(flag == 1) return PhoneNo;
     if (
       PhoneNo.indexOf("@") == -1 &&
       Number(PhoneNo) &&

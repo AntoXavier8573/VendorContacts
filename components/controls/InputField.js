@@ -10,6 +10,7 @@ import {
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import CustomText from "./CustomText";
+import { FormatPhoneLogin } from "./CommonFunctions";
 
 const InputBox = (props) => {
   const {
@@ -25,6 +26,7 @@ const InputBox = (props) => {
     backgroundColor,
     onBlur,
     onFocus,
+    name,
   } = props;
   const [hoverStyle] = useState(
     Platform.select({
@@ -88,7 +90,7 @@ const InputBox = (props) => {
         onLayout={onLayoutRootView}
         style={[
           styles.inputBox,
-          InputField && Platform.OS === "web"  && hoverStyle,
+          InputField && Platform.OS === "web" && hoverStyle,
           { fontFamily: "OpenSansRegular" },
           Platform.OS === "web" && { outline: "none" },
         ]}
@@ -101,13 +103,19 @@ const InputBox = (props) => {
         autoCapitalize={"none"}
         ref={ref || null}
         onBlur={(e) => {
-          // onBlur();
+          if (name == "Cell Phone") {
+            let info = FormatPhoneLogin(value || "");
+            onChangeText(info);
+          }
           setInputField(false);
         }}
-        onFocus={() =>
-          //onFocus()
-          setInputField(true)
-        }
+        onFocus={() => {
+          if (name == "Cell Phone") {
+            let info = FormatPhoneLogin(value || "", 1);
+            onChangeText(info);
+          }
+          setInputField(true);
+        }}
         {...props}
         // hoverStyle={{ borderWidth: 0, outlineWidth: 0 }}
         // activeStyle={{ borderWidth: 0, outlineWidth: 0 }}
@@ -178,7 +186,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     top: -12,
     left: 3,
-    fontSize: Platform.OS === 'web' ?13 : 12,
+    fontSize: Platform.OS === "web" ? 13 : 12,
     color: "gray",
     paddingHorizontal: 3,
   },
